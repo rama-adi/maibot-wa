@@ -2,7 +2,6 @@ export interface CommandContext {
     rawParams: string;
     availableCommands: Omit<Command, "execute">[];
     reply: (msg: string) => Promise<void>;
-    noop: () => Promise<void>;
 }
 
 

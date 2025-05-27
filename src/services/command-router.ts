@@ -54,8 +54,7 @@ export class CommandRouter {
             reply: async (msg: string) => {
                 const taggedMsg = isGroup ? `${payload.name}, ${msg}` : msg;
                 return this.opts.onSend(payload.sender, taggedMsg);
-            },
-            noop: () => Promise.resolve()
+            }
         };
 
         try {

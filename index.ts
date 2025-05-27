@@ -1,22 +1,35 @@
 import { CommandRouter } from "@/services/command-router";
 import { Fonnte } from "@/services/fonnte";
+import { RateLimiter } from "@/services/rate-limiter";
 
 const whatsapp = new Fonnte({
     phoneNumber: process.env.WHATSAPP_PHONE_NUMBER!,
     apiKey: process.env.WHATSAPP_API_KEY!,
 });
 
+const rateLimiter = new RateLimiter();
+
 const router = new CommandRouter({
     onSend: async (to, msg) => {
-        const logMessage = `✅ Sending message to ${to} with message: ${msg}`;
-        console.log(logMessage);
-       
+        // Check rate limit before sending
+        if (!rateLimiter.canSend(to)) {
+            const remaining = rateLimiter.getRemainingMessages(to);
+            const isGroup = to.includes('@g.us');
+            const limit = isGroup ? 1000 : 100;
+            const logMessage = `🚫 Rate limit exceeded for ${to}. Daily limit: ${limit}, Remaining: ${remaining}`;
+            console.warn(logMessage);
+            return;
+        }
+
+        console.log(`✅ Sending message to ${to} with message: ${msg}`);
         await whatsapp.sendMessage(to, msg);
+        
+        // Record the message after successful send
+        rateLimiter.recordMessage(to);
     },
     onError: async (to, err) => {
         const logMessage = `❌ Error for ${to}: ${err}`;
         console.error(logMessage);
-       
     },
 });
 
