@@ -22,25 +22,26 @@ const ALLOWED_GROUPS = process.env.ALLOWED_GROUPS?.split(',') || [];
 
 export default {
     async fetch(request: Request): Promise<Response> {
-        if (request.method !== 'POST') {
-            return new Response('Method not allowed', { status: 405 });
+        if (request.method == 'POST') {
+            try {
+                const payload = await request.text();
+                const result = await whatsapp.handleWebhook(payload);
+    
+                if (result?.group && !ALLOWED_GROUPS.includes(result.sender)) {
+                    return new Response('Unauthorized', { status: 401 });
+                }
+    
+                if (result) {
+                    await router.handle(result);
+                }
+                return new Response('OK', { status: 200 });
+            } catch (error) {
+                console.error('Webhook error:', error);
+                return new Response('Internal server error', { status: 500 });
+            }
         }
 
-        try {
-            const payload = await request.text();
-            const result = await whatsapp.handleWebhook(payload);
-
-            if (result?.group && !ALLOWED_GROUPS.includes(result.sender)) {
-                return new Response('Unauthorized', { status: 401 });
-            }
-
-            if (result) {
-                await router.handle(result);
-            }
-            return new Response('OK', { status: 200 });
-        } catch (error) {
-            console.error('Webhook error:', error);
-            return new Response('Internal server error', { status: 500 });
-        }
+        return new Response('MaiBot is running', { status: 200 });
+        
     }
 };
