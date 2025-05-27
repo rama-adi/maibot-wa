@@ -5,6 +5,7 @@ import type { Song } from "@/types/arcade-song-info";
 const minfo: Command = {
     name: "music",
     description: "Dapatkan informasi musik dari pencarian Anda",
+    usageExample: "`music folern` / `music tsunagite`",
     commandAvailableOn: "both",
     execute: async (ctx) => {
         const query = ctx.rawParams.trim();
