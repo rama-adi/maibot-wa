@@ -25,6 +25,7 @@ export default {
         if (request.method == 'POST') {
             // only allow 103.52.212.50
             const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip');
+            console.log("IP:", ip);
             if (ip !== '103.52.212.50') {
                 return new Response('Unauthorized', { status: 401 });
             }
