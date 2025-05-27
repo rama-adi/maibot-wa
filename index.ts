@@ -23,6 +23,11 @@ const ALLOWED_GROUPS = process.env.ALLOWED_GROUPS?.split(',') || [];
 export default {
     async fetch(request: Request): Promise<Response> {
         if (request.method == 'POST') {
+            // only allow 103.52.212.50
+            const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip');
+            if (ip !== '103.52.212.50') {
+                return new Response('Unauthorized', { status: 401 });
+            }
             try {
                 const payload = await request.text();
                 const result = await whatsapp.handleWebhook(payload);
