@@ -1,20 +1,5 @@
 import { CommandRouter } from "@/services/command-router";
 import { Fonnte } from "@/services/fonnte";
-import * as fs from "fs";
-
-const LOG_FILE = "maibot.log";
-
-function writeLog(message: string) {
-    const timestamp = new Date().toISOString();
-    const logEntry = `[${timestamp}] ${message}\n`;
-    
-    // Create file if it doesn't exist
-    if (!fs.existsSync(LOG_FILE)) {
-        fs.writeFileSync(LOG_FILE, '');
-    }
-    
-    fs.appendFileSync(LOG_FILE, logEntry);
-}
 
 const whatsapp = new Fonnte({
     phoneNumber: process.env.WHATSAPP_PHONE_NUMBER!,
@@ -25,13 +10,13 @@ const router = new CommandRouter({
     onSend: async (to, msg) => {
         const logMessage = `✅ Sending message to ${to} with message: ${msg}`;
         console.log(logMessage);
-        writeLog(logMessage);
+       
         await whatsapp.sendMessage(to, msg);
     },
     onError: async (to, err) => {
         const logMessage = `❌ Error for ${to}: ${err}`;
         console.error(logMessage);
-        writeLog(logMessage);
+       
     },
 });
 
@@ -42,14 +27,12 @@ const ALLOWED_GROUPS = process.env.ALLOWED_GROUPS?.split(',') || [];
 export default {
     async fetch(request: Request): Promise<Response> {
         if (request.method == 'POST') {
-            // only allow 103.52.212.50
-            const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip');
-            const ipLogMessage = `IP: ${ip}`;
-            console.log(ipLogMessage);
-            writeLog(ipLogMessage);
-            if (ip !== '103.52.212.50') {
-                const unauthorizedMessage = 'Unauthorized access attempt';
-                writeLog(unauthorizedMessage);
+            // Check if the request path matches the secret webhook path
+            const url = new URL(request.url);
+            const expectedPath = process.env.SECRET_PATH;
+            const pathLogMessage = `Request path: ${url.pathname}, Expected: ${expectedPath}`;
+            console.log(pathLogMessage);
+            if (url.pathname !== expectedPath) {
                 return new Response('Unauthorized', { status: 401 });
             }
             try {
@@ -58,19 +41,19 @@ export default {
     
                 if (result?.group && !ALLOWED_GROUPS.includes(result.sender)) {
                     const groupUnauthorizedMessage = `Unauthorized group access: ${result.sender}`;
-                    writeLog(groupUnauthorizedMessage);
+                    console.log(groupUnauthorizedMessage);
                     return new Response('Unauthorized', { status: 401 });
                 }
     
                 if (result) {
                     await router.handle(result);
                 }
-                writeLog('Webhook processed successfully');
+                
                 return new Response('OK', { status: 200 });
             } catch (error) {
                 const errorMessage = `Webhook error: ${error}`;
                 console.error(errorMessage);
-                writeLog(errorMessage);
+                
                 return new Response('Internal server error', { status: 500 });
             }
         }
