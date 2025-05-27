@@ -7,6 +7,12 @@ const LOG_FILE = "maibot.log";
 function writeLog(message: string) {
     const timestamp = new Date().toISOString();
     const logEntry = `[${timestamp}] ${message}\n`;
+    
+    // Create file if it doesn't exist
+    if (!fs.existsSync(LOG_FILE)) {
+        fs.writeFileSync(LOG_FILE, '');
+    }
+    
     fs.appendFileSync(LOG_FILE, logEntry);
 }
 
