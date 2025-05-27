@@ -1,5 +1,14 @@
 import { CommandRouter } from "@/services/command-router";
 import { Fonnte } from "@/services/fonnte";
+import * as fs from "fs";
+
+const LOG_FILE = "maibot.log";
+
+function writeLog(message: string) {
+    const timestamp = new Date().toISOString();
+    const logEntry = `[${timestamp}] ${message}\n`;
+    fs.appendFileSync(LOG_FILE, logEntry);
+}
 
 const whatsapp = new Fonnte({
     phoneNumber: process.env.WHATSAPP_PHONE_NUMBER!,
@@ -8,11 +17,15 @@ const whatsapp = new Fonnte({
 
 const router = new CommandRouter({
     onSend: async (to, msg) => {
-        console.log("✅ Sending message to", to, "with message:", msg);
+        const logMessage = `✅ Sending message to ${to} with message: ${msg}`;
+        console.log(logMessage);
+        writeLog(logMessage);
         await whatsapp.sendMessage(to, msg);
     },
     onError: async (to, err) => {
-        console.error(`❌ Error for ${to}:`, err);
+        const logMessage = `❌ Error for ${to}: ${err}`;
+        console.error(logMessage);
+        writeLog(logMessage);
     },
 });
 
@@ -25,8 +38,12 @@ export default {
         if (request.method == 'POST') {
             // only allow 103.52.212.50
             const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip');
-            console.log("IP:", ip);
+            const ipLogMessage = `IP: ${ip}`;
+            console.log(ipLogMessage);
+            writeLog(ipLogMessage);
             if (ip !== '103.52.212.50') {
+                const unauthorizedMessage = 'Unauthorized access attempt';
+                writeLog(unauthorizedMessage);
                 return new Response('Unauthorized', { status: 401 });
             }
             try {
@@ -34,19 +51,23 @@ export default {
                 const result = await whatsapp.handleWebhook(payload);
     
                 if (result?.group && !ALLOWED_GROUPS.includes(result.sender)) {
+                    const groupUnauthorizedMessage = `Unauthorized group access: ${result.sender}`;
+                    writeLog(groupUnauthorizedMessage);
                     return new Response('Unauthorized', { status: 401 });
                 }
     
                 if (result) {
                     await router.handle(result);
                 }
+                writeLog('Webhook processed successfully');
                 return new Response('OK', { status: 200 });
             } catch (error) {
-                console.error('Webhook error:', error);
+                const errorMessage = `Webhook error: ${error}`;
+                console.error(errorMessage);
+                writeLog(errorMessage);
                 return new Response('Internal server error', { status: 500 });
             }
         }
-
         return new Response('MaiBot is running', { status: 200 });
         
     }
