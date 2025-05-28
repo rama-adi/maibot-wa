@@ -24,7 +24,7 @@ export class CommandRouter {
         const [cmdName = "", ...rest] = payload.message.trim().split(/\s+/);
         const rawArgs = rest.join(" ");
 
-        const cmd = this.commands.get(cmdName);
+        const cmd = this.commands.get(cmdName.toLowerCase());
         if (!cmd) {
             // no such command
             return this.opts.onError(

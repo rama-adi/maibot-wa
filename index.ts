@@ -50,7 +50,6 @@ export default {
             }
             try {
                 const payload = await request.text();
-                console.log(payload);
                 const result = await whatsapp.handleWebhook(payload);
     
                 if (result?.group && !ALLOWED_GROUPS.includes(result.sender)) {

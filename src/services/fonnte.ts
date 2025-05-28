@@ -43,6 +43,7 @@ export class Fonnte implements WhatsAppGateway {
         }
 
         const message = payload.message.replace(`@${this.phoneNumber}`, "").trim();
+        console.log("➡️ Sender Number:", payload.sender, "Message:", message);
 
         if (payload.isgroup) {
             return {
