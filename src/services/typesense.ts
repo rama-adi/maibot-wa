@@ -19,10 +19,6 @@ export interface SearchResult {
   utages: Song[];
 }
 
-export async function searchMaimaiWiki(query: String): void {
-  
-}
-
 export async function searchSongByTitle(title: string): Promise<SearchResult[]> {
   const results = await typesenseClient.collections("maimai-songs").documents().search({
     q: title,
