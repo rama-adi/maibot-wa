@@ -1,5 +1,7 @@
 import renderDashboard from "@/dashboard/render-dashboard";
+import renderCommandPage from "@/dashboard/command-page";
 import { setupLoggerOnce } from "@/services/logger";
+import { commandRouter } from "@/initialize";
 import type { BunRequest } from "bun";
 
 
@@ -58,6 +60,31 @@ Bun.serve({
                         "Location": "/dashboard"
                     }
                 });
+            }
+        },
+        "/dashboard/command": {
+            async GET(req: BunRequest) {
+                return await renderCommandPage(req);
+            },
+            async POST(req: BunRequest) {
+                if (req.cookies.get("DASH_COOKIE") !== process.env.DASHBOARD_KEY) {
+                    return new Response(null, {
+                        status: 401
+                    });
+                }
+
+                const formData = await req.formData();
+                const command = formData.get("command")?.toString() ?? "";
+
+                const result = await commandRouter.handleAndGetResult({
+                    sender: "0000",
+                    message: command,
+                    group: false,
+                    number: "0000",
+                    name: "Dashboard"
+                });
+
+                return Response.json({ result: result ?? "" });
             }
         }
     },
