@@ -4,7 +4,8 @@ interface RateLimitEntry {
 }
 
 export class RateLimiter {
-    private limits: Map<string, RateLimitEntry> = new Map();
+    limits: Map<string, RateLimitEntry> = new Map();
+    
     private readonly GROUP_LIMIT = 1000; // messages per day for groups
     private readonly USER_LIMIT = 100;   // messages per day for users
 

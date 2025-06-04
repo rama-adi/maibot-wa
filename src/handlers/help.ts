@@ -2,6 +2,7 @@ import type { Command } from "@/types/command";
 
 const help: Command = {
     name: "help",
+    enabled: true,
     description: "Tampilkan daftar perintah yang tersedia",
     commandAvailableOn: "both",
     usageExample: "`help`",

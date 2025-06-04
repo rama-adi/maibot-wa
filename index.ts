@@ -1,76 +1,70 @@
-import { CommandRouter } from "@/services/command-router";
-import { Fonnte } from "@/services/fonnte";
-import { RateLimiter } from "@/services/rate-limiter";
+import renderDashboard from "@/dashboard/render-dashboard";
+import { setupLoggerOnce } from "@/services/logger";
+import type { BunRequest } from "bun";
 
-const whatsapp = new Fonnte({
-    phoneNumber: process.env.WHATSAPP_PHONE_NUMBER!,
-    apiKey: process.env.WHATSAPP_API_KEY!,
-});
 
-const rateLimiter = new RateLimiter();
 
-const router = new CommandRouter({
-    onSend: async (to, msg) => {
-        // Check rate limit before sending
-        if (!rateLimiter.canSend(to)) {
-            const remaining = rateLimiter.getRemainingMessages(to);
-            const isGroup = to.includes('@g.us');
-            const limit = isGroup ? 1000 : 100;
-            const logMessage = `🚫 Rate limit exceeded for ${to}. Daily limit: ${limit}, Remaining: ${remaining}`;
-            console.warn(logMessage);
-            return;
-        }
-
-        console.log(`✅ Sending message to ${to} with message: ${msg}`);
-        await whatsapp.sendMessage(to, msg);
-        
-        // Record the message after successful send
-        rateLimiter.recordMessage(to);
-    },
-    onError: async (to, err) => {
-        const logMessage = `❌ Error for ${to}: ${err}`;
-        console.error(logMessage);
-    },
-});
-
-// Load commands on startup
-await router.loadCommands();
-const ALLOWED_GROUPS = process.env.ALLOWED_GROUPS?.split(',') || [];
-
-export default {
-    async fetch(request: Request): Promise<Response> {
-        if (request.method == 'POST') {
-            // Check if the request path matches the secret webhook path
-            const url = new URL(request.url);
-            const expectedPath = process.env.SECRET_PATH;
-            const pathLogMessage = `Request path: ${url.pathname}, Expected: ${expectedPath}`;
-            console.log(pathLogMessage);
-            if (url.pathname !== expectedPath) {
-                return new Response('Unauthorized', { status: 401 });
+Bun.serve({
+    routes: {
+        "/dashboard/streams": async (req) => {
+            if (req.cookies.get("DASH_COOKIE") !== process.env.DASHBOARD_KEY) {
+                return new Response(null, {
+                    status: 401
+                });
             }
-            try {
-                const payload = await request.text();
-                const result = await whatsapp.handleWebhook(payload);
-    
-                if (result?.group && !ALLOWED_GROUPS.includes(result.sender)) {
-                    const groupUnauthorizedMessage = `Unauthorized group access: ${result.sender}`;
-                    console.log(groupUnauthorizedMessage);
-                    return new Response('Unauthorized', { status: 401 });
+
+            const stream = new ReadableStream({
+                start(controller) {
+                    setupLoggerOnce(controller);
+                },
+                cancel(controller: ReadableStreamDefaultController) {
+                    controller.close();
+                },
+            });
+            
+            return new Response(stream, {
+                status: 200,
+                headers: {
+                    "Access-Control-Allow-Origin": "*",
+                    "Content-Type": "text/event-stream;charset=utf-8",
+                    "Cache-Control": "no-cache, no-transform",
+                    Connection: "keep-alive",
+                    "X-Accel-Buffering": "no",
+                },
+            });
+        },
+        "/dashboard": {
+            async GET(req: BunRequest) {
+                return await renderDashboard(req)
+            },
+
+            async POST(req: BunRequest) {
+                const formData = await req.formData();
+                const key = formData.get("key")?.toString() ?? "";
+
+                if (key === process.env.DASHBOARD_KEY) {
+                    return new Response(null, {
+                        status: 302,
+                        headers: {
+                            "Location": "/dashboard",
+                            "Set-Cookie": `DASH_COOKIE=${key}; Path=/; HttpOnly; SameSite=Strict`
+                        }
+                    });
                 }
-    
-                if (result) {
-                    await router.handle(result);
-                }
-                
-                return new Response('OK', { status: 200 });
-            } catch (error) {
-                const errorMessage = `Webhook error: ${error}`;
-                console.error(errorMessage);
-                
-                return new Response('Internal server error', { status: 500 });
+
+                return new Response(null, {
+                    status: 302,
+                    headers: {
+                        "Location": "/dashboard"
+                    }
+                });
             }
         }
-        return new Response('MaiBot is running', { status: 200 });
-        
-    }
-};
+    },
+    development: process.env.NODE_ENV !== "production" && {
+        // Enable browser hot reloading in development
+        hmr: true,
+        // Echo console logs from the browser to the server
+        console: true,
+    },
+});

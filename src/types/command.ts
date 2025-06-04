@@ -10,6 +10,7 @@ export interface Command {
     description: string;
     commandAvailableOn: "group" | "private" | "both";
     usageExample: string;
+    enabled: boolean;
     execute: (ctx: CommandContext) => Promise<void>;
 }
 

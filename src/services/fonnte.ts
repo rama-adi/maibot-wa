@@ -1,4 +1,5 @@
 import type { WhatsAppGateway, WhatsAppGatewayPayload } from "@/types/whatsapp-gateway";
+import { sendToLogger } from "./logger";
 type FonnteWebhookPayload = {
     quick: boolean
     device: string
@@ -43,7 +44,7 @@ export class Fonnte implements WhatsAppGateway {
         }
 
         const message = payload.message.replace(`@${this.phoneNumber}`, "").trim();
-        console.log("➡️ Sender Number:", payload.sender, "Message:", message);
+        sendToLogger(`➡️ Sender: ${payload.sender} (${payload.member}), Message: ${payload.message}`);
 
         if (payload.isgroup) {
             return {

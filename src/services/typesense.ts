@@ -19,6 +19,10 @@ export interface SearchResult {
   utages: Song[];
 }
 
+export async function searchMaimaiWiki(query: String): void {
+  
+}
+
 export async function searchSongByTitle(title: string): Promise<SearchResult[]> {
   const results = await typesenseClient.collections("maimai-songs").documents().search({
     q: title,
@@ -28,9 +32,9 @@ export async function searchSongByTitle(title: string): Promise<SearchResult[]> 
     per_page: 5,
     sort_by: "_text_match:desc",
   });
-  
+
   const mmJson = maimaiJson as unknown as ArcadeSongInfo;
-  
+
   // Preserve Typesense sort order by mapping over results in order
   const allFoundSongs = results.hits?.map((hit: any) => {
     const title = hit.document.title;
@@ -38,25 +42,25 @@ export async function searchSongByTitle(title: string): Promise<SearchResult[]> 
   }).filter((song): song is Song => song !== undefined) || [];
 
   // Separate regular songs from utage songs using category field
-  const regularSongs = allFoundSongs.filter(song => 
+  const regularSongs = allFoundSongs.filter(song =>
     song.category !== '宴会場'
   );
-  const utageSongs = allFoundSongs.filter(song => 
+  const utageSongs = allFoundSongs.filter(song =>
     song.category === '宴会場'
   );
-  
+
   // For each found song, create a SearchResult with primary and utages
   const searchResults: SearchResult[] = [];
   const processedSongs = new Set<string>();
-  
+
   // First, process regular songs as primary
   regularSongs.forEach(song => {
     if (processedSongs.has(song.songId)) return;
-    
+
     // Find all utage variants for this regular song
     // Look for utage songs that have the same title but are in 宴会場 category
     // Also check for utage songs where songId contains the regular song title (for prefix cases)
-    const utageVariants = mmJson.songs.filter(s => 
+    const utageVariants = mmJson.songs.filter(s =>
       (s.title === song.title || s.songId.includes(song.title)) &&  // Same title or songId contains title
       s.category === '宴会場' &&  // Utage category
       s.songId !== song.songId  // Different songId
@@ -69,44 +73,44 @@ export async function searchSongByTitle(title: string): Promise<SearchResult[]> 
       }
       return true;
     });
-    
+
     searchResults.push({
       primary: song,
       utages: utageVariants
     });
-    
+
     processedSongs.add(song.songId);
     utageVariants.forEach(utage => processedSongs.add(utage.songId));
   });
-  
+
   // If no regular songs found, but we have utage songs, we need to find their regular counterparts
   if (regularSongs.length === 0 && utageSongs.length > 0) {
     // For each utage song found, try to find its regular counterpart
     utageSongs.forEach(utage => {
       if (processedSongs.has(utage.songId)) return;
-      
-             // Look for regular song with same title
-       // For utage songs with prefixes, we need to extract the base title from songId
-       let baseTitle = utage.title;
-       if (utage.songId.includes('[宴]')) {
-         baseTitle = utage.songId.replace('[宴]', '').trim();
-       } else if (utage.songId.includes('(宴)')) {
-         baseTitle = utage.songId.replace('(宴)', '').trim();
-       }
-       
-       const regularCounterpart = mmJson.songs.find(s => 
-         (s.title === utage.title || s.title === baseTitle || s.songId === baseTitle) &&
-         s.category !== '宴会場' &&
-         s.songId !== utage.songId
-       );
-      
+
+      // Look for regular song with same title
+      // For utage songs with prefixes, we need to extract the base title from songId
+      let baseTitle = utage.title;
+      if (utage.songId.includes('[宴]')) {
+        baseTitle = utage.songId.replace('[宴]', '').trim();
+      } else if (utage.songId.includes('(宴)')) {
+        baseTitle = utage.songId.replace('(宴)', '').trim();
+      }
+
+      const regularCounterpart = mmJson.songs.find(s =>
+        (s.title === utage.title || s.title === baseTitle || s.songId === baseTitle) &&
+        s.category !== '宴会場' &&
+        s.songId !== utage.songId
+      );
+
       if (regularCounterpart) {
-                 // Found regular counterpart, use it as primary
-         const allUtageVariants = mmJson.songs.filter(s => 
-           (s.title === regularCounterpart.title || s.songId.includes(regularCounterpart.title)) &&
-           s.category === '宴会場' &&
-           s.songId !== regularCounterpart.songId
-         ).filter((utage, index, array) => {
+        // Found regular counterpart, use it as primary
+        const allUtageVariants = mmJson.songs.filter(s =>
+          (s.title === regularCounterpart.title || s.songId.includes(regularCounterpart.title)) &&
+          s.category === '宴会場' &&
+          s.songId !== regularCounterpart.songId
+        ).filter((utage, index, array) => {
           // dedupe same comment, prio newest date
           const sameComment = array.filter(s => s.comment === utage.comment);
           if (sameComment.length > 1) {
@@ -115,12 +119,12 @@ export async function searchSongByTitle(title: string): Promise<SearchResult[]> 
           }
           return true;
         });
-        
+
         searchResults.push({
           primary: regularCounterpart,
           utages: allUtageVariants
         });
-        
+
         processedSongs.add(regularCounterpart.songId);
         allUtageVariants.forEach(u => processedSongs.add(u.songId));
       } else {
@@ -129,7 +133,7 @@ export async function searchSongByTitle(title: string): Promise<SearchResult[]> 
           primary: utage,
           utages: []
         });
-        
+
         processedSongs.add(utage.songId);
       }
     });
