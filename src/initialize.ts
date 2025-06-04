@@ -1,5 +1,6 @@
 import { CommandRouter } from "./services/command-router";
 import { Fonnte } from "./services/fonnte";
+import { sendToLogger } from "./services/logger";
 import { RateLimiter } from "./services/rate-limiter";
 
 export const whatsapp = new Fonnte({
@@ -16,8 +17,7 @@ export const commandRouter = new CommandRouter({
             const remaining = rateLimiter.getRemainingMessages(to);
             const isGroup = to.includes('@g.us');
             const limit = isGroup ? 1000 : 100;
-            const logMessage = `🚫 Rate limit exceeded for ${to}. Daily limit: ${limit}, Remaining: ${remaining}`;
-            console.warn(logMessage);
+            sendToLogger(`🚫 Rate limit exceeded for ${to}. Daily limit: ${limit}, Remaining: ${remaining}`)
             return;
         }
 
@@ -27,8 +27,7 @@ export const commandRouter = new CommandRouter({
         rateLimiter.recordMessage(to);
     },
     onError: async (to, err) => {
-        const logMessage = `❌ Error for ${to}: ${err}`;
-        console.error(logMessage);
+        sendToLogger(`❌ Error for ${to}: ${err}`)
     },
 });
 

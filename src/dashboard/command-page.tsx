@@ -13,7 +13,7 @@ export default async function renderCommandPage(req: Bun.BunRequest) {
                 <div className="min-h-screen bg-gray-50 p-6">
                     <div className="max-w-xl mx-auto space-y-4">
                         <h1 className="text-2xl font-bold text-gray-900">Command Tester</h1>
-                        <form id="command-form" className="flex gap-2">
+                        <form id="command-form" className="flex gap-2" autoComplete="off">
                             <input id="command-input" type="text" className="flex-1 border rounded px-3 py-2" placeholder="Enter command" />
                             <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded">Run</button>
                         </form>
@@ -25,7 +25,7 @@ export default async function renderCommandPage(req: Bun.BunRequest) {
                     __html: `
                         document.getElementById('command-form').addEventListener('submit', async function(e) {
                             e.preventDefault();
-                            const input = (document.getElementById('command-input') as HTMLInputElement).value;
+                            const input = (document.getElementById('command-input')).value;
                             const formData = new FormData();
                             formData.append('command', input);
                             const res = await fetch('/dashboard/command', { method: 'POST', body: formData });

@@ -6,6 +6,9 @@
     "@types/bun": "latest",
     "@types/react": "^19.1.6"
   },
+  "scripts": {
+    "dev": "bun --hot run index.ts"
+  },
   "peerDependencies": {
     "typescript": "^5.8.3"
   },

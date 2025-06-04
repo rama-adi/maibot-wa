@@ -245,6 +245,11 @@ export default async function renderDashboard(req: Bun.BunRequest) {
                         const maxLogs = 100;
 
                         function connectSSE() {
+                            // Close existing connection if any
+                            if (eventSource) {
+                                eventSource.close();
+                            }
+                            
                             eventSource = new EventSource('/dashboard/streams');
                             
                             eventSource.onopen = function() {
@@ -254,6 +259,11 @@ export default async function renderDashboard(req: Bun.BunRequest) {
                             };
 
                             eventSource.onmessage = function(event) {
+                                // Ignore heartbeat messages (they start with empty data or are comments)
+                                if (!event.data || event.data.trim() === '' || event.data.startsWith('heartbeat')) {
+                                    return;
+                                }
+                                
                                 const logContainer = document.getElementById('log-container');
                                 const timestamp = new Date().toLocaleTimeString();
                                 
@@ -288,11 +298,14 @@ export default async function renderDashboard(req: Bun.BunRequest) {
                                 document.getElementById('connection-text').textContent = 'Disconnected';
                                 console.error('SSE connection error:', error);
                                 
+                                // Close the connection to prevent further errors
+                                if (eventSource) {
+                                    eventSource.close();
+                                }
+                                
                                 // Attempt to reconnect after 5 seconds
                                 setTimeout(() => {
-                                    if (eventSource.readyState === EventSource.CLOSED) {
-                                        connectSSE();
-                                    }
+                                    connectSSE();
                                 }, 5000);
                             };
                         }
@@ -303,7 +316,6 @@ export default async function renderDashboard(req: Bun.BunRequest) {
                             logCount = 0;
                             document.getElementById('log-count').textContent = '0 messages';
                         });
-
 
                         // Start SSE connection when page loads
                         connectSSE();
