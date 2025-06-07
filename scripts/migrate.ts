@@ -72,6 +72,7 @@ const createMigrationRunner = (): MigrationRunner => {
             }
 
             console.log(`🔧 Creating database: ${fullPath}`);
+            await Bun.write(fullPath, "");
             // Create new database since it doesn't exist
             const db = initializeDatabase(new Database(fullPath), config.schema);
             await executeMigration(db, configPath);
