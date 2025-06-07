@@ -1,10 +1,10 @@
-import { searchSongByTitle } from "@/services/typesense";
+import { searchSongByTitle } from "@/database/queries/song-queries";
 import type { Command } from "@/types/command";
-import type { Song } from "@/types/arcade-song-info";
 
 const minfo: Command = {
     name: "music",
     enabled: true,
+    adminOnly: false,
     description: "Dapatkan informasi musik dari pencarian Anda",
     usageExample: "`music folern` / `music tsunagite`",
     commandAvailableOn: "both",

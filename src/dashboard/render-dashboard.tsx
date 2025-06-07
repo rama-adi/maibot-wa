@@ -2,17 +2,19 @@ import { renderToReadableStream } from "react-dom/server"
 import DashboardShell from "./shell"
 import DashboardError from "./error"
 import renderLoginPage from "./login"
-import { ALLOWED_GROUPS, rateLimiter, commandRouter, whatsapp } from "@/initialize";
+import { rateLimiter, commandRouter, whatsapp } from "@/initialize";
+import { listAllowedGroup } from "@/database/queries/allowed-group";
 
 
 export default async function renderDashboard(req: Bun.BunRequest) {
-
+   
     if (req.cookies.get("DASH_COOKIE") !== process.env.DASHBOARD_KEY) {
         return await renderLoginPage();
     }
 
     // Gather data from services
-    const rateLimiterStats = rateLimiter.getStats();
+    const rateLimiterStats = await rateLimiter.getStats();
+    const allowedGroups = await listAllowedGroup();
     const availableCommands = Array.from(commandRouter['commands'].values()).map(cmd => ({
         name: cmd.name,
         description: cmd.description,
@@ -53,7 +55,7 @@ export default async function renderDashboard(req: Bun.BunRequest) {
                             </div>
                             <div className="bg-white rounded-lg shadow p-6">
                                 <h3 className="text-lg font-semibold text-gray-900 mb-2">Allowed Groups</h3>
-                                <p className="text-3xl font-bold text-purple-600">{ALLOWED_GROUPS.length}</p>
+                                <p className="text-3xl font-bold text-purple-600">{allowedGroups.length}</p>
                                 <p className="text-sm text-gray-500">Configured groups</p>
                             </div>
                             <div className="bg-white rounded-lg shadow p-6">
@@ -146,11 +148,11 @@ export default async function renderDashboard(req: Bun.BunRequest) {
                                     <h2 className="text-xl font-semibold text-gray-900">Allowed Groups</h2>
                                 </div>
                                 <div className="p-6">
-                                    {ALLOWED_GROUPS.length === 0 ? (
+                                    {allowedGroups.length === 0 ? (
                                         <p className="text-gray-500 italic">No groups configured</p>
                                     ) : (
                                         <ul className="space-y-2">
-                                            {ALLOWED_GROUPS.map((group, index) => (
+                                            {allowedGroups.map((group, index) => (
                                                 <li key={index} className="flex items-center p-2 bg-gray-50 rounded">
                                                     <span className="text-green-500 mr-2">✅</span>
                                                     <span className="font-mono text-sm">{group}</span>

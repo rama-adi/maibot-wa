@@ -1,3 +1,5 @@
+import { configDatabase } from "./database/drizzle";
+import { allowedGroups } from "./database/schemas/config-schema";
 import { CommandRouter } from "./services/command-router";
 import { Fonnte } from "./services/fonnte";
 import { sendToLogger } from "./services/logger";
@@ -7,7 +9,7 @@ export const whatsapp = new Fonnte({
     phoneNumber: process.env.WHATSAPP_PHONE_NUMBER!,
     apiKey: process.env.WHATSAPP_API_KEY!,
 });
-export const ALLOWED_GROUPS = process.env.ALLOWED_GROUPS?.split(',') || [];
+
 export const rateLimiter = new RateLimiter();
 
 export const commandRouter = new CommandRouter({
@@ -30,6 +32,3 @@ export const commandRouter = new CommandRouter({
         sendToLogger(`❌ Error for ${to}: ${err}`)
     },
 });
-
-// Load commands on startup
-await commandRouter.loadCommands();

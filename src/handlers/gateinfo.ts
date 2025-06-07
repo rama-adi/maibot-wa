@@ -153,6 +153,7 @@ const GATES: Gate[] = [
 const gateinfo: Command = {
     name: "gateinfo",
     enabled: true,
+    adminOnly: false,
     description: "Dapatkan informasi tentang gate KALEID×SCOPE",
     usageExample: "`gateinfo` / `gateinfo blue`",
     commandAvailableOn: "both",

@@ -1,11 +1,8 @@
-interface RateLimitEntry {
-    count: number;
-    resetTime: number;
-}
+import { configDatabase } from '@/database/drizzle';
+import { rateLimits, allowedGroups } from '@/database/schemas/config-schema';
+import { eq, lte, gt } from 'drizzle-orm';
 
 export class RateLimiter {
-    limits: Map<string, RateLimitEntry> = new Map();
-    
     private readonly GROUP_LIMIT = 1000; // messages per day for groups
     private readonly USER_LIMIT = 100;   // messages per day for users
 
@@ -18,14 +15,18 @@ export class RateLimiter {
         return recipient.includes('@g.us');
     }
 
-    private getLimit(recipient: string): number {
-        return this.isGroup(recipient) ? this.GROUP_LIMIT : this.USER_LIMIT;
-    }
-
-    private getDayStart(): number {
-        const now = new Date();
-        now.setHours(0, 0, 0, 0);
-        return now.getTime();
+    private async getLimit(recipient: string): Promise<number> {
+        if (this.isGroup(recipient)) {
+            // Check if group has custom rate limit in allowed_groups table
+            const groupConfig = await configDatabase
+                .select()
+                .from(allowedGroups)
+                .where(eq(allowedGroups.id, recipient))
+                .limit(1);
+            
+            return groupConfig[0]?.rateLimit ?? this.GROUP_LIMIT;
+        }
+        return this.USER_LIMIT;
     }
 
     private getNextDayStart(): number {
@@ -35,74 +36,102 @@ export class RateLimiter {
         return tomorrow.getTime();
     }
 
-    canSend(recipient: string): boolean {
+    async canSend(recipient: string): Promise<boolean> {
         const now = Date.now();
-        const dayStart = this.getDayStart();
-        const limit = this.getLimit(recipient);
+        const limit = await this.getLimit(recipient);
 
-        const entry = this.limits.get(recipient);
+        const entry = await configDatabase
+            .select()
+            .from(rateLimits)
+            .where(eq(rateLimits.id, recipient))
+            .limit(1);
 
-        // If no entry exists or it's from a previous day, allow
-        if (!entry || entry.resetTime <= now) {
+        // If no entry exists or it's expired, allow
+        if (!entry[0] || (entry[0].resetsAt !== null && entry[0].resetsAt <= now)) {
             return true;
         }
 
         // Check if we're within the limit
-        return entry.count < limit;
+        return (entry[0].rateLimit ?? 0) < limit;
     }
 
-    recordMessage(recipient: string): void {
+    async recordMessage(recipient: string): Promise<void> {
         const now = Date.now();
         const nextDayStart = this.getNextDayStart();
 
-        const entry = this.limits.get(recipient);
+        const existingEntry = await configDatabase
+            .select()
+            .from(rateLimits)
+            .where(eq(rateLimits.id, recipient))
+            .limit(1);
 
-        if (!entry || entry.resetTime <= now) {
+        if (!existingEntry[0] || (existingEntry[0].resetsAt !== null && existingEntry[0].resetsAt <= now)) {
             // Create new entry or reset expired one
-            this.limits.set(recipient, {
-                count: 1,
-                resetTime: nextDayStart
-            });
+            await configDatabase
+                .insert(rateLimits)
+                .values({
+                    id: recipient,
+                    rateLimit: 1,
+                    resetsAt: nextDayStart
+                })
+                .onConflictDoUpdate({
+                    target: rateLimits.id,
+                    set: {
+                        rateLimit: 1,
+                        resetsAt: nextDayStart
+                    }
+                });
         } else {
             // Increment existing entry
-            entry.count++;
+            await configDatabase
+                .update(rateLimits)
+                .set({ rateLimit: (existingEntry[0].rateLimit ?? 0) + 1 })
+                .where(eq(rateLimits.id, recipient));
         }
     }
 
-    getRemainingMessages(recipient: string): number {
-        const limit = this.getLimit(recipient);
-        const entry = this.limits.get(recipient);
+    async getRemainingMessages(recipient: string): Promise<number> {
+        const limit = await this.getLimit(recipient);
+        
+        const entry = await configDatabase
+            .select()
+            .from(rateLimits)
+            .where(eq(rateLimits.id, recipient))
+            .limit(1);
 
-        if (!entry || entry.resetTime <= Date.now()) {
+        if (!entry[0] || (entry[0].resetsAt !== null && entry[0].resetsAt <= Date.now())) {
             return limit;
         }
 
-        return Math.max(0, limit - entry.count);
+        return Math.max(0, limit - (entry[0].rateLimit ?? 0));
     }
 
-    private cleanup(): void {
+    private async cleanup(): Promise<void> {
         const now = Date.now();
-        for (const [key, entry] of this.limits.entries()) {
-            if (entry.resetTime <= now) {
-                this.limits.delete(key);
-            }
-        }
+        await configDatabase
+            .delete(rateLimits)
+            .where(lte(rateLimits.resetsAt, now));
     }
 
     // Get stats for debugging
-    getStats(): { recipient: string; count: number; remaining: number; resetTime: Date }[] {
+    async getStats(): Promise<{ recipient: string; count: number; remaining: number; resetTime: Date }[]> {
         const now = Date.now();
+        
+        const entries = await configDatabase
+            .select()
+            .from(rateLimits)
+            .where(gt(rateLimits.resetsAt, now));
+
         const stats: { recipient: string; count: number; remaining: number; resetTime: Date }[] = [];
 
-        for (const [recipient, entry] of this.limits.entries()) {
-            if (entry.resetTime > now) {
-                stats.push({
-                    recipient,
-                    count: entry.count,
-                    remaining: this.getRemainingMessages(recipient),
-                    resetTime: new Date(entry.resetTime)
-                });
-            }
+        for (const entry of entries) {
+            const remaining = await this.getRemainingMessages(entry.id);
+            stats.push({
+                recipient: entry.id,
+                count: entry.rateLimit ?? 0,
+                remaining,
+                resetTime: new Date(entry.resetsAt ?? now)
+            });
         }
 
         return stats;
