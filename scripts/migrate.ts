@@ -16,20 +16,6 @@ type MigrationRunner = {
     runSingle: (config: MigrationConfig) => Promise<void>;
 }
 
-// Add your migrations here - easy to extend!
-const migrations: MigrationConfig[] = [
-    {
-        database: "bot_config.db",
-        configFolder: "config_migrations",
-        schema: configSchema
-    }
-    // Add more migrations here as needed:
-    // {
-    //     database: new Database("data/another.db"),
-    //     configFolder: "another_migrations",
-    //     schema: anotherSchema
-    // }
-];
 
 const createMigrationRunner = (): MigrationRunner => {
     const logMigrationStart = () => {
@@ -80,7 +66,7 @@ const createMigrationRunner = (): MigrationRunner => {
             }
 
             const configPath = join(projectRoot, "drizzle", config.configFolder);
-            if (!(await Bun.file(configPath).exists())) {
+            if (!(await Bun.file(join(configPath, "meta", "_journal.json")).exists())) {
                 throw new Error(`💥 Config path doesn't exist: ${configPath}`)
                 return;
             }
@@ -114,18 +100,3 @@ const createMigrationRunner = (): MigrationRunner => {
 
 // Export the migration runner for use in other files
 export { createMigrationRunner, type MigrationConfig };
-
-// Main function to run all defined migrations
-async function runMigrations() {
-    const migrationRunner = createMigrationRunner();
-    await migrationRunner.run(migrations);
-    process.exit(0);
-}
-
-// Only run migrations if this file is executed directly
-if (import.meta.main) {
-    runMigrations().catch((error) => {
-        console.error(error);
-        process.exit(1);
-    });
-}
