@@ -2,6 +2,8 @@ import {Database} from "bun:sqlite";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import { migrate } from "drizzle-orm/bun-sqlite/migrator";
 import * as configSchema from "@/database/schemas/config-schema";
+import { join } from "path";
+const projectRoot = process.cwd();
 
 type MigrationConfig = {
     database: string;
@@ -17,7 +19,7 @@ type MigrationRunner = {
 // Add your migrations here - easy to extend!
 const migrations: MigrationConfig[] = [
     {
-        database: "data/bot_config.db",
+        database: "bot_config.db",
         configFolder: "config_migrations",
         schema: configSchema
     }
@@ -32,6 +34,7 @@ const migrations: MigrationConfig[] = [
 const createMigrationRunner = (): MigrationRunner => {
     const logMigrationStart = () => {
         console.log("\n🚀 Starting database migrations...\n");
+        console.log("Path: ", projectRoot);
         return Date.now();
     };
 
@@ -59,15 +62,22 @@ const createMigrationRunner = (): MigrationRunner => {
 
     const runSingle = async (config: MigrationConfig) => {
         try {
+            const fullPath = join(projectRoot, "data", config.database)
             // Check if database file exists
-            if (await Bun.file(config.database).exists()) {
+            if (await Bun.file(fullPath).exists()) {
                 console.log(`⏭️  Database already exists, skipping: ${config.database}`);
                 return;
             }
 
+            const configPath = join(projectRoot, "drizzle", config.configFolder);
+            if (await Bun.file(configPath).exists()) {
+                throw new Error(`💥 Config path doesn't exist: ${configPath}`)
+                return;
+            }
+
             // Create new database since it doesn't exist
-            const db = initializeDatabase(new Database(config.database), config.schema);
-            await executeMigration(db, `${__dirname}/../drizzle/${config.configFolder}`);
+            const db = initializeDatabase(new Database(fullPath), config.schema);
+            await executeMigration(db, configPath);
             console.log(`✅ Migration completed for: ${config.configFolder}`);
         } catch (error) {
             console.error(`❌ Migration failed for: ${config.configFolder}`);
