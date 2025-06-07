@@ -4,7 +4,7 @@ import { migrate } from "drizzle-orm/bun-sqlite/migrator";
 import * as configSchema from "@/database/schemas/config-schema";
 
 type MigrationConfig = {
-    database: Database;
+    database: string;
     configFolder: string;
     schema?: Record<string, any>;
 }
@@ -17,7 +17,7 @@ type MigrationRunner = {
 // Add your migrations here - easy to extend!
 const migrations: MigrationConfig[] = [
     {
-        database: new Database("data/bot_config.db"),
+        database: "data/bot_config.db",
         configFolder: "config_migrations",
         schema: configSchema
     }
@@ -59,7 +59,14 @@ const createMigrationRunner = (): MigrationRunner => {
 
     const runSingle = async (config: MigrationConfig) => {
         try {
-            const db = initializeDatabase(config.database, config.schema);
+            // Check if database file exists
+            if (await Bun.file(config.database).exists()) {
+                console.log(`⏭️  Database already exists, skipping: ${config.database}`);
+                return;
+            }
+
+            // Create new database since it doesn't exist
+            const db = initializeDatabase(new Database(config.database), config.schema);
             await executeMigration(db, `${__dirname}/../drizzle/${config.configFolder}`);
             console.log(`✅ Migration completed for: ${config.configFolder}`);
         } catch (error) {
