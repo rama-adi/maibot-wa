@@ -62,7 +62,17 @@ const createMigrationRunner = (): MigrationRunner => {
 
     const runSingle = async (config: MigrationConfig) => {
         try {
-            const fullPath = join(projectRoot, "data", config.database)
+            const dataDir = join(projectRoot, "data");
+            const fullPath = join(dataDir, config.database)
+            
+            // Ensure data directory exists
+            try {
+                await Bun.write(join(dataDir, ".gitkeep"), "");
+            } catch (error) {
+                // Directory might not exist, try to create it
+                console.log(`📁 Creating data directory: ${dataDir}`);
+            }
+            
             // Check if database file exists
             if (await Bun.file(fullPath).exists()) {
                 console.log(`⏭️  Database already exists, skipping: ${config.database}`);
@@ -70,11 +80,12 @@ const createMigrationRunner = (): MigrationRunner => {
             }
 
             const configPath = join(projectRoot, "drizzle", config.configFolder);
-            if (await Bun.file(configPath).exists()) {
+            if (!(await Bun.file(configPath).exists())) {
                 throw new Error(`💥 Config path doesn't exist: ${configPath}`)
                 return;
             }
 
+            console.log(`🔧 Creating database: ${fullPath}`);
             // Create new database since it doesn't exist
             const db = initializeDatabase(new Database(fullPath), config.schema);
             await executeMigration(db, configPath);

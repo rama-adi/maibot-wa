@@ -11,6 +11,11 @@ RUN bun install --frozen-lockfile
 # Copy source code and data
 COPY . .
 
+# Create data directory and set permissions
+RUN mkdir -p /usr/src/app/data && \
+    chown -R bun:bun /usr/src/app/data && \
+    chmod 755 /usr/src/app/data
+
 # Create persistent volume for database files
 VOLUME ["/usr/src/app/data"]
 
@@ -18,5 +23,5 @@ VOLUME ["/usr/src/app/data"]
 USER bun
 EXPOSE 3000/tcp
 
-# Run migrations and start the app
-ENTRYPOINT ["sh", "-c", "bun run migrate && bun run index.ts"]
+# Start the app with migrations
+ENTRYPOINT ["bun", "run", "start.ts"]
