@@ -19,6 +19,11 @@ RUN mkdir -p /usr/src/app/data && \
 # Create persistent volume for database files
 VOLUME ["/usr/src/app/data"]
 
+# Install sudo for permission fixes (if needed)
+RUN apt-get update && apt-get install -y sudo && \
+    echo "bun ALL=(ALL) NOPASSWD: /bin/chown, /bin/chmod" >> /etc/sudoers && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
 # Set user and expose port
 USER bun
 EXPOSE 3000/tcp
