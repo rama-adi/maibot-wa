@@ -1,4 +1,4 @@
-import { searchSongByTitle } from "@/database/queries/song-queries";
+import { searchSongByTitle } from "@/services/typesense";
 import type { Command } from "@/types/command";
 
 const minfo: Command = {

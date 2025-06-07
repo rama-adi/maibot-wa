@@ -7,7 +7,7 @@ import * as musicSchema from "@/database/schemas/music-schema";
 const projectRoot = process.cwd();
 
 // Music database
-const musicSqlite = new Database(join(projectRoot, "sheet_score.db"));
+const musicSqlite = new Database(join(projectRoot, "data", "sheet_score.db"));
 export const musicDatabase = drizzle(musicSqlite, { schema: musicSchema });
 
 import * as configSchema from "@/database/schemas/config-schema";
