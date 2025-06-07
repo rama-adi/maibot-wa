@@ -1,9 +1,10 @@
-import { searchSongByTitle } from "@/services/typesense";
+import { searchSongByTitle } from "@/database/queries/song-queries";
 import type { Command } from "@/types/command";
-import type { Song } from "@/types/arcade-song-info";
 
 const minfo: Command = {
     name: "music",
+    enabled: true,
+    adminOnly: false,
     description: "Dapatkan informasi musik dari pencarian Anda",
     usageExample: "`music folern` / `music tsunagite`",
     commandAvailableOn: "both",
@@ -127,11 +128,11 @@ const minfo: Command = {
                 }
             });
 
-            replyText += `\n\n⚠️ *PERINGATAN PENTING U･TA･GE:*\n• *Minimal rating 10000 untuk bermain*\n• *Mode ini TIDAK menaikkan rating sama sekali*\n• *Jika main 2P, pastikan partner setuju main mode ini agar tidak terjadi masalah*\n• Bila 2P tidak setuju, tidak boleh memaksakan main mode ini`;
+            replyText += `\n\n⚠️ *PERINGATAN PENTING U･TA･GE:*\n• *Minimal rating 10000 untuk bermain*\n• *Mode ini TIDAK menaikkan rating sama sekali*\n• *Jika main 2P, pastikan partner setuju main mode ini agar tidak terjadi masalah*\n• *Bila 2P tidak setuju, tidak boleh memaksakan main mode ini*`;
         }
 
         if (searchResults.length > 1) {
-            replyText += `\nSaya juga menemukan beberapa lagu lain yang mungkin terkait dengan pencarian Anda:\n`;
+            replyText += `\n\nSaya juga menemukan beberapa lagu lain yang mungkin terkait dengan pencarian Anda:\n`;
             const otherResults = searchResults.slice(1, 5);
             replyText += otherResults.map((result: any) => `- ${result.primary.title} (${result.primary.artist})`).join('\n');
             replyText += `\nJika ini adalah lagu yang Anda cari, Anda dapat menggunakan perintah lagi dengan judul lagu untuk mendapatkan informasi lebih lanjut tentang lagu tersebut`;

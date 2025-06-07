@@ -173,3 +173,7 @@ dist
 
 # Finder (MacOS) folder config
 .DS_Store
+
+# This database(s) will be copied from stubs for the first time
+# Please run `bun run db:generate` to create the database here.
+data/bot_config.db

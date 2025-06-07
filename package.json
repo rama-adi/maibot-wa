@@ -3,12 +3,21 @@
   "module": "index.ts",
   "type": "module",
   "devDependencies": {
-    "@types/bun": "latest"
+    "@types/bun": "latest",
+    "@types/react": "^19.1.6"
+  },
+  "scripts": {
+    "dev": "bun --hot run index.ts",
+    "migrate": "bun run scripts/migrate.ts"
   },
   "peerDependencies": {
-    "typescript": "^5.0.0"
+    "typescript": "^5.8.3"
   },
   "dependencies": {
-    "typesense": "^2.0.3"
+    "@types/react-dom": "^19.1.5",
+    "drizzle-orm": "^0.44.2",
+    "react-dom": "^19.1.0",
+    "typesense": "^2.0.3",
+    "zod": "^3.25.56"
   }
 }

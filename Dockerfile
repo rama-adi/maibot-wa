@@ -28,6 +28,11 @@ COPY --from=prerelease /usr/src/app/index.ts .
 COPY --from=prerelease /usr/src/app/package.json .
 COPY --from=prerelease /usr/src/app/tsconfig.json .
 COPY --from=prerelease /usr/src/app/src ./src
+COPY --from=prerelease /usr/src/app/scripts ./scripts
+COPY --from=prerelease /usr/src/app/data ./data
+
+# run database migration
+RUN bun run migrate
 
 # run the app
 USER bun
