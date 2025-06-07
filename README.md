@@ -12,6 +12,8 @@ A WhatsApp bot designed for the Maimai arcade rhythm game community, providing m
   - Regional availability (China, International, Japan)
   - Special U･TA･GE mode information with warnings
 
+Please note that you'll need to bring your own Typesense server. Public server is coming soon as I would like to remove typesense from dependencies.
+
 ### 🚪 Gate Information
 - **KALEID×SCOPE Gate Tracker**: Real-time information about gate conditions
   - Current unlock requirements based on days since release
@@ -195,10 +197,6 @@ For issues, questions, or feature requests:
 1. Check existing GitHub issues
 2. Create a new issue with detailed information
 3. Contact the maintainer for urgent matters
-
-## 🔄 Updates
-
-The bot automatically syncs with the latest Maimai game data and gate information. Database migrations handle schema updates seamlessly.
 
 ---
 
