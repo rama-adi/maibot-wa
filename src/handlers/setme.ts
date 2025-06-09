@@ -7,7 +7,7 @@ import { findSongByInternalId } from "@/database/queries/song-queries";
 const setmeSchema = z.object({
     name: z.string().optional(),
     bio: z.string().optional(),
-    favsong: z.number().optional(),
+    fav_song: z.number().optional(),
 })
 
 const setme: Command = {
@@ -38,14 +38,14 @@ const setme: Command = {
         try {
             const validatedParams = setmeSchema.parse(parseSetmeParams(rawParams));
             
-            if (!validatedParams.name && !validatedParams.bio && !validatedParams.favsong) {
+            if (!validatedParams.name && !validatedParams.bio && !validatedParams.fav_song) {
                 return await ctx.reply("❌ Format tidak valid!\n\nGunakan: `setme name <nama>, bio <bio>, favsong <nomor>`\n\nContoh: `setme name John Doe, bio Saya suka maimai, favsong 123`");
             }
 
             // Validate song ID and get song details if provided
             let songDetails = null;
-            if (validatedParams.favsong) {
-                songDetails = await findSongByInternalId(validatedParams.favsong);
+            if (validatedParams.fav_song) {
+                songDetails = await findSongByInternalId(validatedParams.fav_song);
                 if (!songDetails) {
                     return await ctx.reply("❌ ID lagu tidak valid! Pastikan ID lagu yang dimasukkan benar.");
                 }
@@ -56,7 +56,7 @@ const setme: Command = {
                 const fields = [
                     validatedParams.name && `📝 Nama: ${validatedParams.name}`,
                     validatedParams.bio && `📄 Bio: ${validatedParams.bio}`,
-                    validatedParams.favsong && songDetails && `🎵 Lagu Favorit: ${songDetails.title}`
+                    validatedParams.fav_song && songDetails && `🎵 Lagu Favorit: ${songDetails.title}`
                 ].filter(Boolean).join('\n');
                 const suffix = isDryRun ? "✅ Format parsing valid - tidak ada perubahan disimpan untuk admin." : "🎉 Perubahan telah disimpan!";
                 return `${prefix}\n\n${fields ? `📋 Parameter yang diparse:\n${fields}\n\n` : ''}${suffix}`;
@@ -88,18 +88,18 @@ const setme: Command = {
     }
 }
 
-function parseSetmeParams(rawParams: string): { name?: string, bio?: string, favsong?: number } {
-    const result: { name?: string, bio?: string, favsong?: number } = {};
+function parseSetmeParams(rawParams: string): { name?: string, bio?: string, fav_song?: number } {
+    const result: { name?: string, bio?: string, fav_song?: number } = {};
     const parts = rawParams.split(',');
     let currentField = '';
     let currentValue = '';
     
     const saveField = () => {
         if (currentField && currentValue) {
-            if (currentField === 'favsong') {
+            if (currentField === 'fav_song') {
                 const numValue = parseInt(currentValue.trim(), 10);
                 if (!isNaN(numValue)) {
-                    result.favsong = numValue;
+                    result.fav_song = numValue;
                 }
             } else {
                 result[currentField as 'name' | 'bio'] = currentValue.trim();
@@ -120,8 +120,8 @@ function parseSetmeParams(rawParams: string): { name?: string, bio?: string, fav
             currentValue = trimmed.substring(4);
         } else if (trimmed.startsWith('favsong ')) {
             saveField();
-            currentField = 'favsong';
-            currentValue = trimmed.substring(8);
+            currentField = 'fav_song';
+            currentValue = trimmed.substring(7);
         } else if (currentField) {
             currentValue += (currentValue ? ', ' : '') + trimmed;
         }
