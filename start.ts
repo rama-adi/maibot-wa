@@ -1,6 +1,94 @@
 import { createMigrationRunner } from "./scripts/migrate";
 import { existsSync, mkdirSync } from "fs";
+import { readdir } from "fs/promises";
 import { join } from "path";
+
+interface DrizzleConfig {
+    database: string;
+    configFolder: string;
+    schema: any;
+}
+
+interface ParsedKitConfig {
+    database?: string;
+    configFolder?: string;
+    schemaPath?: string;
+}
+
+async function loadKitConfig(kitFile: string): Promise<ParsedKitConfig> {
+    try {
+        // Import the kit file directly as a module
+        const configPath = `./drizzle/${kitFile}`;
+        const kitModule = await import(configPath);
+        const config = kitModule.default;
+        
+        // Extract values from the actual config object
+        const database = config.dbCredentials?.url?.replace('./', '') || '';
+        const configFolder = config.out?.replace('./drizzle/', '') || '';
+        const schemaPath = config.schema?.replace('./src/', '@/') || '';
+        
+        return {
+            database,
+            configFolder,
+            schemaPath
+        };
+    } catch (error) {
+        console.error(`❌ Error loading kit file ${kitFile}:`, error);
+        return {};
+    }
+}
+
+async function loadDrizzleConfigurations(): Promise<DrizzleConfig[]> {
+    try {
+        // Read the drizzle directory
+        const drizzleDir = join(process.cwd(), "drizzle");
+        const files = await readdir(drizzleDir);
+        
+        // Filter for .kit.ts files
+        const kitFiles = files.filter(file => file.endsWith(".kit.ts"));
+        
+        if (kitFiles.length === 0) {
+            console.log("❌ No .kit.ts files found in drizzle directory");
+            return [];
+        }
+        
+        console.log(`📁 Found ${kitFiles.length} drizzle configurations:`, kitFiles);
+        
+        // Parse configurations from kit files
+        const configs: DrizzleConfig[] = [];
+        
+        for (const file of kitFiles) {
+            const parsedConfig = await loadKitConfig(file);
+            
+            if (parsedConfig.database && parsedConfig.configFolder && parsedConfig.schemaPath) {
+                try {
+                    // Dynamically import the schema
+                    const schema = await import(parsedConfig.schemaPath);
+                    
+                    configs.push({
+                        database: parsedConfig.database,
+                        configFolder: parsedConfig.configFolder,
+                        schema: schema
+                    });
+                    
+                    console.log(`✅ Loaded config: ${parsedConfig.database} → ${parsedConfig.configFolder}`);
+                } catch (importError) {
+                    console.error(`❌ Failed to import schema for ${file}:`, parsedConfig.schemaPath);
+                    console.error(`   Error:`, importError);
+                }
+            } else {
+                console.warn(`⚠️  Could not parse complete config from ${file}`);
+            }
+        }
+        
+        console.log(`📦 Successfully loaded ${configs.length} drizzle configurations`);
+        return configs;
+        
+    } catch (error) {
+        console.error("❌ Error loading drizzle configurations:", error);
+        return [];
+    }
+}
 
 async function startApplication() {
     try {
@@ -22,17 +110,17 @@ async function startApplication() {
         // Fix permissions for volume mount (Coolify-compatible)
         try {
             console.log("🔧 Checking and fixing permissions for Coolify deployment...");
-            const { execSync } = await import("child_process");
+            const { $ } = await import("bun");
             
             // Get current user info
-            const bunUserId = execSync("id -u", { encoding: 'utf-8' }).trim();
-            const bunGroupId = execSync("id -g", { encoding: 'utf-8' }).trim();
+            const bunUserId = await $`id -u`.text().then(output => output.trim());
+            const bunGroupId = await $`id -g`.text().then(output => output.trim());
             console.log(`👤 Current user ID: ${bunUserId}, Group ID: ${bunGroupId}`);
             
             // First try to fix permissions with sudo
             try {
-                execSync(`sudo chown -R ${bunUserId}:${bunGroupId} ${dataDir}`, { stdio: 'pipe' });
-                execSync(`sudo chmod -R 755 ${dataDir}`, { stdio: 'pipe' });
+                await $`sudo chown -R ${bunUserId}:${bunGroupId} ${dataDir}`.quiet();
+                await $`sudo chmod -R 755 ${dataDir}`.quiet();
                 console.log("✅ Permissions fixed with sudo");
             } catch (sudoError) {
                 console.log("⚠️  Sudo approach failed, trying direct permission test...");
@@ -52,22 +140,19 @@ async function startApplication() {
             console.log("🚀 Proceeding with migration attempt...");
         }
         
-        // Run migrations first
-        console.log("📦 Running database migrations...");
-        const migrationRunner = createMigrationRunner();
+        // Load drizzle configurations dynamically
+        console.log("📦 Loading drizzle configurations...");
+        const migrations = await loadDrizzleConfigurations();
         
-        // Run migrations with the same config as migrate.ts
-        const configSchema = await import("@/database/schemas/config-schema");
-        const migrations = [
-            {
-                database: "bot_config.db",
-                configFolder: "config_migrations",
-                schema: configSchema
-            }
-        ];
-        
-        await migrationRunner.run(migrations);
-        console.log("✅ Migrations completed successfully!");
+        if (migrations.length === 0) {
+            console.log("⚠️  No valid drizzle configurations found, skipping migrations");
+        } else {
+            // Run migrations with dynamically loaded configs
+            console.log("📦 Running database migrations...");
+            const migrationRunner = createMigrationRunner();
+            await migrationRunner.run(migrations);
+            console.log("✅ Migrations completed successfully!");
+        }
         
         // Start the main application
         console.log("🎯 Starting main application...");
