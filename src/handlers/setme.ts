@@ -2,10 +2,12 @@ import { findUserByPhone } from "@/database/queries/user-query";
 import type { Command } from "@/types/command";
 import { z } from "zod";
 import { setUserDetail } from "@/database/queries/user-query";
+import { findSongByInternalId } from "@/database/queries/song-queries";
 
 const setmeSchema = z.object({
     name: z.string().optional(),
-    bio: z.string().optional()
+    bio: z.string().optional(),
+    favsong: z.number().optional(),
 })
 
 const setme: Command = {
@@ -14,7 +16,7 @@ const setme: Command = {
     enabled: true,
     description: "Atur detail informasi akun anda",
     commandAvailableOn: "both",
-    usageExample: "`setme name john doe, bio i love maimai`",
+    usageExample: "`setme name john doe, bio i love maimai, favsong 123`",
     execute: async (ctx) => {
         const rawParams = ctx.rawParams.trim();
         const user = await findUserByPhone(ctx.rawPayload);
@@ -29,22 +31,32 @@ const setme: Command = {
             message += `Status: ${status}\n\n`;
             message += "Terima kasih telah menggunakan MaiBot! 🙏\n\n";
             message += "💡 Untuk mengubah informasi, gunakan:\n";
-            message += "`setme name <nama>, bio <bio>`";
+            message += "`setme name <nama>, bio <bio>, favsong <nomor>`";
             return await ctx.reply(message);
         }
 
         try {
             const validatedParams = setmeSchema.parse(parseSetmeParams(rawParams));
             
-            if (!validatedParams.name && !validatedParams.bio) {
-                return await ctx.reply("❌ Format tidak valid!\n\nGunakan: `setme name <nama>, bio <bio>`\n\nContoh: `setme name John Doe, bio Saya suka maimai`");
+            if (!validatedParams.name && !validatedParams.bio && !validatedParams.favsong) {
+                return await ctx.reply("❌ Format tidak valid!\n\nGunakan: `setme name <nama>, bio <bio>, favsong <nomor>`\n\nContoh: `setme name John Doe, bio Saya suka maimai, favsong 123`");
+            }
+
+            // Validate song ID and get song details if provided
+            let songDetails = null;
+            if (validatedParams.favsong) {
+                songDetails = await findSongByInternalId(validatedParams.favsong);
+                if (!songDetails) {
+                    return await ctx.reply("❌ ID lagu tidak valid! Pastikan ID lagu yang dimasukkan benar.");
+                }
             }
 
             const buildResultMessage = (isDryRun = false) => {
                 const prefix = isDryRun ? "🔧 DRY RUN - Parsing berhasil!" : "✅ Informasi berhasil diperbarui!";
                 const fields = [
                     validatedParams.name && `📝 Nama: ${validatedParams.name}`,
-                    validatedParams.bio && `📄 Bio: ${validatedParams.bio}`
+                    validatedParams.bio && `📄 Bio: ${validatedParams.bio}`,
+                    validatedParams.favsong && songDetails && `🎵 Lagu Favorit: ${songDetails.title}`
                 ].filter(Boolean).join('\n');
                 const suffix = isDryRun ? "✅ Format parsing valid - tidak ada perubahan disimpan untuk admin." : "🎉 Perubahan telah disimpan!";
                 return `${prefix}\n\n${fields ? `📋 Parameter yang diparse:\n${fields}\n\n` : ''}${suffix}`;
@@ -64,7 +76,7 @@ const setme: Command = {
 
         } catch (error) {
             const message = error instanceof z.ZodError 
-                ? "❌ Format parameter tidak valid!\n\nGunakan: `setme name <nama>, bio <bio>`"
+                ? "❌ Format parameter tidak valid!\n\nGunakan: `setme name <nama>, bio <bio>, favsong <nomor>`"
                 : "❌ Terjadi kesalahan saat memperbarui informasi. Silakan coba lagi.";
             
             if (!(error instanceof z.ZodError)) {
@@ -76,15 +88,22 @@ const setme: Command = {
     }
 }
 
-function parseSetmeParams(rawParams: string): { name?: string, bio?: string } {
-    const result: { name?: string, bio?: string } = {};
+function parseSetmeParams(rawParams: string): { name?: string, bio?: string, favsong?: number } {
+    const result: { name?: string, bio?: string, favsong?: number } = {};
     const parts = rawParams.split(',');
     let currentField = '';
     let currentValue = '';
     
     const saveField = () => {
         if (currentField && currentValue) {
-            result[currentField as 'name' | 'bio'] = currentValue.trim();
+            if (currentField === 'favsong') {
+                const numValue = parseInt(currentValue.trim(), 10);
+                if (!isNaN(numValue)) {
+                    result.favsong = numValue;
+                }
+            } else {
+                result[currentField as 'name' | 'bio'] = currentValue.trim();
+            }
         }
     };
     
@@ -99,6 +118,10 @@ function parseSetmeParams(rawParams: string): { name?: string, bio?: string } {
             saveField();
             currentField = 'bio';
             currentValue = trimmed.substring(4);
+        } else if (trimmed.startsWith('favsong ')) {
+            saveField();
+            currentField = 'favsong';
+            currentValue = trimmed.substring(8);
         } else if (currentField) {
             currentValue += (currentValue ? ', ' : '') + trimmed;
         }

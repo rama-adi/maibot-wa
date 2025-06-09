@@ -12,6 +12,7 @@ const help: Command = {
         const publicCommand = ctx
             .availableCommands
             .filter(cmd => !cmd.adminOnly)
+            .filter(cmd => cmd.enabled)
             .map(cmd => `- ${cmd.name}: ${cmd.description} (Contoh: ${cmd.usageExample})`)
             .join("\n");
 

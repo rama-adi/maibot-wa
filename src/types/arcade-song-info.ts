@@ -10,6 +10,7 @@ export interface ArcadeSongInfo {
 
 export interface Song {
     songId: string
+    internalProcessId: number,
     category: string
     title: string
     artist: string

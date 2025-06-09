@@ -6,7 +6,8 @@ export const users = sqliteTable('users', {
     publicId: text('public_id').unique(), 
     name: text('name').notNull(),
     isBanned: integer('is_banned', { mode: 'boolean' }).notNull(),
-    bio: text('bio').default("")
+    bio: text('bio').default(""),
+    favSong: integer('fav_song'),
 }, (table) => {
     return [
         index('users_id_idx').on(table.id),
