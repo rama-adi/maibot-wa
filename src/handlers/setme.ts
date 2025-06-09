@@ -2,6 +2,7 @@ import { findUserByPhone } from "@/database/queries/user-query";
 import type { Command } from "@/types/command";
 import { z } from "zod";
 import { setUserDetail } from "@/database/queries/user-query";
+import { findSongByInternalId } from "@/database/queries/song-queries";
 
 const setmeSchema = z.object({
     name: z.string().optional(),
@@ -41,12 +42,21 @@ const setme: Command = {
                 return await ctx.reply("❌ Format tidak valid!\n\nGunakan: `setme name <nama>, bio <bio>, favsong <nomor>`\n\nContoh: `setme name John Doe, bio Saya suka maimai, favsong 123`");
             }
 
+            // Validate song ID and get song details if provided
+            let songDetails = null;
+            if (validatedParams.favsong) {
+                songDetails = await findSongByInternalId(validatedParams.favsong);
+                if (!songDetails) {
+                    return await ctx.reply("❌ ID lagu tidak valid! Pastikan ID lagu yang dimasukkan benar.");
+                }
+            }
+
             const buildResultMessage = (isDryRun = false) => {
                 const prefix = isDryRun ? "🔧 DRY RUN - Parsing berhasil!" : "✅ Informasi berhasil diperbarui!";
                 const fields = [
                     validatedParams.name && `📝 Nama: ${validatedParams.name}`,
                     validatedParams.bio && `📄 Bio: ${validatedParams.bio}`,
-                    validatedParams.favsong && `🎵 Lagu Favorit: ${validatedParams.favsong}`
+                    validatedParams.favsong && songDetails && `🎵 Lagu Favorit: ${songDetails.title}`
                 ].filter(Boolean).join('\n');
                 const suffix = isDryRun ? "✅ Format parsing valid - tidak ada perubahan disimpan untuk admin." : "🎉 Perubahan telah disimpan!";
                 return `${prefix}\n\n${fields ? `📋 Parameter yang diparse:\n${fields}\n\n` : ''}${suffix}`;
