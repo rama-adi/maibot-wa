@@ -1,7 +1,10 @@
+import type { WhatsAppGatewayPayload } from "./whatsapp-gateway";
+
 export interface CommandContext {
     rawParams: string;
     availableCommands: Omit<Command, "execute">[];
     isAdmin: boolean;
+    rawPayload: WhatsAppGatewayPayload;
     reply: (msg: string) => Promise<void>;
 }
 
@@ -17,6 +20,6 @@ export interface Command {
 }
 
 export interface CommandRouterOptions {
-    onSend: (to: string, msg: string) => Promise<void>;
-    onError: (to: string, err: unknown) => Promise<void>;
+    onSend: (payload: WhatsAppGatewayPayload, msg: string, ) => Promise<void>;
+    onError: (payload: WhatsAppGatewayPayload, err: unknown) => Promise<void>;
 }

@@ -4,10 +4,12 @@
   "type": "module",
   "devDependencies": {
     "@types/bun": "latest",
-    "@types/react": "^19.1.6"
+    "@types/react": "^19.1.6",
+    "drizzle-kit": "^0.31.1"
   },
   "scripts": {
     "dev": "bun --hot run index.ts",
+    "gendrizzle": "bun run scripts/generate-drizzle.ts",
     "migrate": "bun run scripts/migrate.ts"
   },
   "peerDependencies": {
@@ -16,6 +18,7 @@
   "dependencies": {
     "@types/react-dom": "^19.1.5",
     "drizzle-orm": "^0.44.2",
+    "nanoid": "^5.1.5",
     "react-dom": "^19.1.0",
     "typesense": "^2.0.3",
     "zod": "^3.25.56"

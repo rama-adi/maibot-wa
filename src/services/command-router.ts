@@ -53,7 +53,7 @@ export class CommandRouter {
             // no such command
             sendToLogger(`❌ Unknown command: "${cmdName}"`);
             return this.opts.onError(
-                payload.sender,
+                payload,
                 `Unknown command "${cmdName}". Try "help" to list available commands.`
             );
         }
@@ -62,7 +62,7 @@ export class CommandRouter {
 
         if(cmd.adminOnly && !isAdmin) {
             return this.opts.onError(
-                payload.sender,
+                payload,
                 `Command "${cmdName}" is only available for administrators.`
             );
         }
@@ -73,13 +73,13 @@ export class CommandRouter {
         const isGroup = payload.group;
         if (cmd.commandAvailableOn === "group" && !isGroup) {
             return this.opts.onError(
-                payload.sender,
+                payload,
                 `Command "${cmdName}" is only available in groups.`
             );
         }
         if (cmd.commandAvailableOn === "private" && isGroup) {
             return this.opts.onError(
-                payload.sender,
+                payload,
                 `Command "${cmdName}" is only available in private messages.`
             );
         }
@@ -88,9 +88,9 @@ export class CommandRouter {
             rawParams: rawArgs,
             isAdmin,
             availableCommands: Array.from(this.commands.values()).map(({ execute, ...cmd }) => cmd),
+            rawPayload: payload,
             reply: async (msg: string) => {
-                const taggedMsg = isGroup ? `${payload.name}, ${msg}` : msg;
-                return this.opts.onSend(payload.sender, taggedMsg);
+                return this.opts.onSend(payload, msg);
             }
         };
 
@@ -100,7 +100,7 @@ export class CommandRouter {
         } catch (err) {
             sendToLogger(`❌ Command "${cmd.name}" failed: ${err}`);
             // bubble to your error reporter
-            await this.opts.onError(payload.sender, err);
+            await this.opts.onError(payload, err);
         }
     }
 }
