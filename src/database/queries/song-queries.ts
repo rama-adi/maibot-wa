@@ -23,6 +23,7 @@ async function dbSongToSong(dbSong: typeof musicSchema.songs.$inferSelect): Prom
         .where(eq(musicSchema.sheets.songId, dbSong.id));
 
     return {
+        internalProcessId: dbSong.internalProcessId || 0,
         songId: dbSong.id,
         category: dbSong.categoryId,
         title: dbSong.title,
@@ -74,6 +75,24 @@ async function dbSongToSong(dbSong: typeof musicSchema.songs.$inferSelect): Prom
             };
         }).filter(sheet => sheet.level !== '*')
     };
+}
+
+/**
+ * Find a song by its internal process ID
+ */
+export async function findSongByInternalId(internalId: number): Promise<Song | null> {
+    const dbSong = await musicDatabase
+        .select()
+        .from(musicSchema.songs)
+        .where(eq(musicSchema.songs.internalProcessId, internalId))
+        .limit(1)
+        .get();
+
+    if (!dbSong) {
+        return null;
+    }
+
+    return await dbSongToSong(dbSong);
 }
 
 /**

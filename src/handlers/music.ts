@@ -1,3 +1,4 @@
+import { findUserByPhoneWithFavSong } from "@/database/queries/user-query";
 import { searchSongByTitle } from "@/services/typesense";
 import type { Command } from "@/types/command";
 
@@ -11,6 +12,7 @@ const minfo: Command = {
     execute: async (ctx) => {
         const query = ctx.rawParams.trim();
         const searchResults = await searchSongByTitle(query);
+        const userSong = await findUserByPhoneWithFavSong(ctx.rawPayload);
 
         if (searchResults.length === 0) {
             await ctx.reply(`Tidak ada lagu yang ditemukan untuk pencarian: ${query}`);
@@ -54,9 +56,14 @@ const minfo: Command = {
 
 
         let replyText = `Hasil pencarian lagu _${query}_ berhasil!\n\n`;
-        replyText += `Judul: ${primarySong.title}\n`;
+        if(userSong.favoriteSongData) {
+            replyText += `Judul: ${primarySong.title}\n (⭐ Favorit)`;
+        } else {
+            replyText += `Judul: ${primarySong.title}\n`;
+        }
         replyText += `Artis: ${primarySong.artist}\n`;
         replyText += `Versi: ${primarySong.version}\n`;
+        replyText += `ID Lagu: ${primarySong.internalProcessId}\n _(Untuk set lagu favorit)_`;
 
         // Add DX version if available and different from main version
         const dxSheets = primarySong.sheets.filter(sheet => sheet.type === 'dx');
@@ -69,6 +76,7 @@ const minfo: Command = {
         }
 
         replyText += `\n`;
+         replyText += "🆕 Baru! Gunakan ID lagu untuk mengatur lagu favorit di profilmu. cek perintah `setme` !\n\n"
 
         // Add song availability based on sheets regions
         const hasRegion = (region: 'cn' | 'intl' | 'jp') => {
@@ -124,7 +132,7 @@ const minfo: Command = {
             utages.forEach((utage, index) => {
                 if (utage.comment) {
                     const prefix = utages.length > 1 ? `${index + 1}. ${utage.sheets[0].difficulty}` : utage.sheets[0].difficulty;
-                    replyText += `\n${prefix} ${utage.sheets[0].level} Komentar: ${utage.comment}`;
+                    replyText += `\n${prefix} (ID ${utage.internalProcessId}) ${utage.sheets[0].level} Komentar: ${utage.comment}`;
                 }
             });
 
@@ -134,7 +142,7 @@ const minfo: Command = {
         if (searchResults.length > 1) {
             replyText += `\n\nSaya juga menemukan beberapa lagu lain yang mungkin terkait dengan pencarian Anda:\n`;
             const otherResults = searchResults.slice(1, 5);
-            replyText += otherResults.map((result: any) => `- ${result.primary.title} (${result.primary.artist})`).join('\n');
+            replyText += otherResults.map((result: any) => `- ${result.primary.title} (${result.primary.artist}) (ID ${result.primary.internalProcessId})`).join('\n');
             replyText += `\nJika ini adalah lagu yang Anda cari, Anda dapat menggunakan perintah lagi dengan judul lagu untuk mendapatkan informasi lebih lanjut tentang lagu tersebut`;
         }
 

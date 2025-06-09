@@ -35,6 +35,7 @@ export const regions = sqliteTable('regions', {
 
 export const songs = sqliteTable('songs', {
     id: text('id').primaryKey(), // Corresponds to songId
+    internalProcessId: integer('internal_process_id').default(0),
     title: text('title').notNull(),
     artist: text('artist').notNull(),
     imageName: text('image_name').notNull(),
@@ -50,6 +51,8 @@ export const songs = sqliteTable('songs', {
     baseTitle: text('base_title').notNull(), // cleaned title for matching (removes [宴], (宴) prefixes)
     normalizedTitle: text('normalized_title').notNull(), // further normalized for search
 }, (table) => [
+    index('internal_process_id_idx').on(table.internalProcessId),
+
     // Indexes for utage song queries
     index('songs_category_idx').on(table.categoryId),
     index('songs_is_utage_idx').on(table.isUtage),

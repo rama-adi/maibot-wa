@@ -1,7 +1,6 @@
 import {Database} from "bun:sqlite";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import { migrate } from "drizzle-orm/bun-sqlite/migrator";
-import * as configSchema from "@/database/schemas/config-schema";
 import { join } from "path";
 const projectRoot = process.cwd();
 
@@ -58,12 +57,6 @@ const createMigrationRunner = (): MigrationRunner => {
                 // Directory might not exist, try to create it
                 console.log(`📁 Creating data directory: ${dataDir}`);
             }
-            
-            // Check if database file exists
-            if (await Bun.file(fullPath).exists()) {
-                console.log(`⏭️  Database already exists, skipping: ${config.database}`);
-                return;
-            }
 
             const configPath = join(projectRoot, "drizzle", config.configFolder);
             if (!(await Bun.file(join(configPath, "meta", "_journal.json")).exists())) {
@@ -71,9 +64,12 @@ const createMigrationRunner = (): MigrationRunner => {
                 return;
             }
 
-            console.log(`🔧 Creating database: ${fullPath}`);
-            await Bun.write(fullPath, "");
-            // Create new database since it doesn't exist
+            // Create database file if it doesn't exist
+            if (!(await Bun.file(fullPath).exists())) {
+                console.log(`🔧 Creating database: ${fullPath}`);
+                await Bun.write(fullPath, "");
+            }
+
             const db = initializeDatabase(new Database(fullPath), config.schema);
             await executeMigration(db, configPath);
             console.log(`✅ Migration completed for: ${config.configFolder}`);

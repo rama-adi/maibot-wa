@@ -1,0 +1,1 @@
+ALTER TABLE `users` ADD `fav_song` integer;
