@@ -5,12 +5,30 @@ import { eq } from "drizzle-orm";
 import type { WhatsAppGatewayPayload } from "@/types/whatsapp-gateway";
 import { nanoid } from "nanoid";
 
+
+function hashPhoneNumber(number: string) {
+    const hasher = new Bun.CryptoHasher("blake2b256");
+    return hasher.update(number).digest('hex');
+}
+
 export async function listAllUsers() {
     return await userDatabase
         .select()
         .from(users)
         .orderBy(asc(users.id));
 } 
+
+export async function setUserDetail(
+    phoneNumberHash: string,
+    data: Partial<Omit<typeof users.$inferInsert, "id" | "phoneNumberHash" | "publicId" | "isBanned">>
+) {
+    return await userDatabase
+        .update(users)
+        .set(data)
+        .where(eq(users.phoneNumberHash, phoneNumberHash))
+        .returning()
+        .get();
+}
 
 export async function findUserByPhone(payload: WhatsAppGatewayPayload) {
     if (payload.number === "INTERNAL_ADMIN") {
@@ -25,19 +43,16 @@ export async function findUserByPhone(payload: WhatsAppGatewayPayload) {
         };
     }
 
-    const hasher = new Bun.CryptoHasher("blake2b256");
-    const numberHash = hasher.update(payload.number).digest('hex');
-
     let user = await userDatabase
         .select()
         .from(users)
-        .where(eq(users.phoneNumberHash, numberHash))
+        .where(eq(users.phoneNumberHash, hashPhoneNumber(payload.number)))
         .get();
 
     if (!user) {
         // Create new user if not found
         const newUser = {
-            phoneNumberHash: numberHash,
+            phoneNumberHash: hashPhoneNumber(payload.number),
             publicId: `user_${nanoid(10)}`,
             name: payload.name || "New User",
             isBanned: false,
