@@ -1,5 +1,6 @@
 import renderDashboard from "@/dashboard/render-dashboard";
 import renderCommandPage from "@/dashboard/command-page";
+import renderUsersPage from "@/dashboard/list-users";
 import { setupLoggerOnce, cleanupController, sendToLogger } from "@/services/logger";
 import { commandRouter, whatsapp } from "@/initialize";
 import type { BunRequest } from "bun";
@@ -140,6 +141,11 @@ async function main() {
     
                     return Response.json({ result });
                 }
+            },
+            "/dashboard/users": {
+                async GET(req: BunRequest) {
+                    return await renderUsersPage(req);
+                }
             }
         },
         async fetch(request: Request): Promise<Response> {
@@ -152,6 +158,7 @@ async function main() {
                 if (url.pathname !== expectedPath) {
                     return new Response('Unauthorized', { status: 401 });
                 }
+                
                 try {
                     const payload = await request.text();
                     const result = await whatsapp.handleWebhook(payload);
