@@ -63,7 +63,7 @@ const minfo: Command = {
         }
         replyText += `Artis: ${primarySong.artist}\n`;
         replyText += `Versi: ${primarySong.version}\n`;
-        replyText += `ID Lagu: ${primarySong.internalProcessId}\n _(Untuk set lagu favorit)_`;
+        replyText += `ID Lagu: ${primarySong.internalProcessId} _(Untuk set lagu favorit)_\n`;
 
         // Add DX version if available and different from main version
         const dxSheets = primarySong.sheets.filter(sheet => sheet.type === 'dx');
