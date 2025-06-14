@@ -2,15 +2,17 @@ import renderDashboard from "@/dashboard/render-dashboard";
 import renderCommandPage from "@/dashboard/command-page";
 import renderUsersPage from "@/dashboard/list-users";
 import { setupLoggerOnce, cleanupController, sendToLogger } from "@/services/logger";
-import { commandRouter, whatsapp } from "@/initialize";
+import { commandRouter, createDummyUser, whatsapp } from "@/initialize";
 import type { BunRequest } from "bun";
 import { serve } from "bun";
 import { CommandRouter } from "@/services/command-router";
 import { findAllowedGroup } from "@/database/queries/allowed-group";
+import {handleBookmarkletRequest, handleIngestRequest} from "@/web/bookmarklet/bookmarklet";
 
 async function main() {
     await commandRouter.loadCommands();
-
+    await createDummyUser();
+    
     const httpServer = serve({
         routes: {
             "/": async (req) => {
@@ -136,10 +138,20 @@ async function main() {
                         message: command,
                         group: false,
                         number: "INTERNAL_ADMIN",
-                        name: "Dashboard"
+                        name: "Tester Admin Account"
                     });
     
                     return Response.json({ result });
+                }
+            },
+            "/bookmarklet": {
+                async GET(req: BunRequest) {
+                    return await handleBookmarkletRequest(req);
+                }
+            },
+            "/bookmarklet/ingest": {
+                async POST(req: BunRequest) {
+                    return await handleIngestRequest(req);
                 }
             },
             "/dashboard/users": {

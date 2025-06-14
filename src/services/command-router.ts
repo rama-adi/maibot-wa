@@ -12,7 +12,7 @@ export class CommandRouter {
 
     /** Scan `src/commands` and dynamically import all handlers */
     public async loadCommands() {
-        const dir = resolve(__dirname, "../handlers");
+        const dir = resolve(__dirname, "../commands");
         const loadedCommands: { name: string, file: string }[] = [];
         
         for (const file of readdirSync(dir)) {

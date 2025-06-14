@@ -55,18 +55,6 @@ export async function getUserWithFavoriteSong(phoneNumberHash: string) {
 }
 
 export async function findUserByPhone(payload: WhatsAppGatewayPayload) {
-    if (payload.number === "INTERNAL_ADMIN") {
-        // Return placeholder admin user
-        return {
-            id: -1,
-            phoneNumberHash: "INTERNAL_ADMIN", 
-            publicId: "admin",
-            name: "System Admin",
-            isBanned: false,
-            bio: "System Administrator"
-        };
-    }
-
     let user = await userDatabase
         .select()
         .from(users)
@@ -94,19 +82,6 @@ export async function findUserByPhone(payload: WhatsAppGatewayPayload) {
 }
 
 export async function findUserByPhoneWithFavSong(payload: WhatsAppGatewayPayload) {
-    if (payload.number === "INTERNAL_ADMIN") {
-        // Return placeholder admin user
-        return {
-            id: -1,
-            phoneNumberHash: "INTERNAL_ADMIN", 
-            publicId: "admin",
-            name: "System Admin",
-            isBanned: false,
-            bio: "System Administrator",
-            favoriteSongData: null
-        };
-    }
-
     let user = await userDatabase
         .select()
         .from(users)

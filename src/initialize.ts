@@ -13,6 +13,19 @@ export const whatsapp = new Fonnte({
 
 export const rateLimiter = new RateLimiter();
 
+export async function createDummyUser() {
+    const fakeUser = await findUserByPhone({
+        sender: "INTERNAL_ADMIN",
+        message: "test",
+        group: false,
+        number: "INTERNAL_ADMIN",
+        name: "Tester Admin Account",
+    });
+
+    console.log("Fake user loaded", fakeUser.name, fakeUser.phoneNumberHash)
+
+}
+
 export const commandRouter = new CommandRouter({
     onSend: async (payload, msg) => {
         const isGroup = payload.sender.includes('@g.us');
