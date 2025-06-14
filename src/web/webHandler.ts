@@ -2,7 +2,7 @@ import { cleanupController, setupLoggerOnce } from "@/services/logger";
 import type { BunRequest } from "bun";
 import renderDashboard from "@/web/dashboard/render-dashboard";
 import { CommandRouter } from "@/services/command-router";
-import { handleBookmarkletRequest, handleIngestRequest } from "./bookmarklet/bookmarklet";
+import { handleBookmarkletIngestRequest, handleIngestRequest } from "./bookmarklet/bookmarklet";
 import renderCommandPage from "./dashboard/command-page";
 import renderUsersPage from "./dashboard/list-users";
 
@@ -114,6 +114,7 @@ export const webHandler = {
             const command = formData.get("command")?.toString() ?? "";
 
             let result = "";
+
             const commandRouter = new CommandRouter({
                 onSend: async (_to, msg) => {
                     result = msg;
@@ -138,7 +139,10 @@ export const webHandler = {
     },
     "/bookmarklet": {
         async GET(req: BunRequest) {
-            return await handleBookmarkletRequest(req);
+            return new Response("amogus");
+        },
+        async POST(req: BunRequest) {
+            return await handleBookmarkletIngestRequest(req);
         }
     },
     "/bookmarklet/ingest": {

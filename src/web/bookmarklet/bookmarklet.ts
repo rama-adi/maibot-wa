@@ -4,8 +4,6 @@ import { ingestData } from "./ingest";
 import { Effect } from "effect";
 import { replacePlaceholderPlugin } from "./bun-plugins";
 
-
-
 export async function handleIngestRequest(req: BunRequest) {
     const body = await req.text();
     const totalRating = await Effect.runPromise(ingestData(body));
@@ -16,8 +14,9 @@ export async function handleIngestRequest(req: BunRequest) {
     }))
 }
 
-export async function handleBookmarkletRequest(req: BunRequest) {
-    const bearer = req.headers.get('Authorization')?.trim().substring(0,7) ?? "";
+export async function handleBookmarkletIngestRequest(req: BunRequest) {
+
+    const bearer = req.headers.get('Authorization')?.trim().substring(0,12) ?? "";
     
     const buildOutput = await build({
         minify: true,
@@ -34,7 +33,7 @@ export async function handleBookmarkletRequest(req: BunRequest) {
     return new Response(buildOutput.outputs[0], {
         headers: {
             "Access-Control-Allow-Origin": "https://maimaidx-eng.com",
-            "Access-Control-Allow-Methods": "GET",
+            "Access-Control-Allow-Methods": "*",
             "Access-Control-Allow-Headers": "Content-Type"
         }
     });

@@ -31,7 +31,7 @@ export const commandRouter = new CommandRouter({
         const isGroup = payload.sender.includes('@g.us');
 
         // Check rate limit before sending
-        if (!rateLimiter.canSend(payload.sender)) {
+        if (!(await rateLimiter.canSend(payload.sender))) {
             const remaining = rateLimiter.getRemainingMessages(payload.sender);
             const limit = isGroup ? 1000 : 100;
             sendToLogger(`🚫 Rate limit exceeded for ${payload.sender}. Daily limit: ${limit}, Remaining: ${remaining}`)

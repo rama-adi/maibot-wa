@@ -43,7 +43,6 @@ async function main() {
                 }
             }
             return new Response('MaiBot is running', { status: 200 });
-
         }
     });
 
