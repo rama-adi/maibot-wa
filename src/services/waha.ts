@@ -195,7 +195,6 @@ export const WahaWhatsappService = Layer.effect(WhatsAppGatewayService)(
                             number: webhookMessage.payload.from.replace("@c.us", ""),
                             name: name
                         };
-
                     return result;
                 }).pipe(
                     Effect.mapError((error) => new Error(`Webhook error: ${error}`))

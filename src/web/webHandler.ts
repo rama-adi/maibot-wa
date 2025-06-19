@@ -27,8 +27,10 @@ export const webHandler = {
                         try: () => req.text(),
                         catch: (err) => new Error(`Fail to decode body: ${err}`),
                     });
-                    yield * Effect.sync(() => console.log("Receive", bodyText));
-                    return yield * whatsapp.handleWebhook(bodyText, req.headers);
+                    const result = yield * whatsapp.handleWebhook(bodyText, req.headers);
+                    if (result) {
+                        yield * router.handle(result);
+                    }
                 });
 
                 await Effect.runPromise(program.pipe(Effect.provide(MainDependencies)));
