@@ -7,8 +7,8 @@ import renderUsersPage from "./dashboard/list-users";
 import {Effect, Layer} from "effect";
 import {CommandRouterService, CommandRouterServiceLive} from "@/services/command-router.ts";
 import {WhatsAppGatewayService} from "@/types/whatsapp-gateway";
-import {DatabaseRateLimiterService, NullRateLimiterService} from "@/services/rate-limiter";
-import {WahaWhatsappService} from "@/services/waha.ts";
+import {NullRateLimiterService} from "@/services/rate-limiter";
+import {MainDependencies} from "../../index.ts";
 
 export const webHandler = {
     "/": async (_: BunRequest) => {
@@ -16,12 +16,6 @@ export const webHandler = {
     },
     "/webhook": {
         async POST(req: BunRequest) {
-            const MainLayer = Layer.mergeAll(
-                WahaWhatsappService,
-                DatabaseRateLimiterService,
-                CommandRouterServiceLive
-            );
-
             try {
                 const program = Effect.gen(function* () {
                     const router = yield* CommandRouterService;
@@ -36,7 +30,7 @@ export const webHandler = {
                     return yield * whatsapp.handleWebhook(bodyText, req.headers);
                 });
 
-                await Effect.runPromise(program.pipe(Effect.provide(MainLayer)));
+                await Effect.runPromise(program.pipe(Effect.provide(MainDependencies)));
                 return Response.json({ result: "Webhook processed successfully" });
             } catch (error) {
                 console.error("Webhook processing failed:", error);

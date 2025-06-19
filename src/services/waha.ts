@@ -1,6 +1,6 @@
 import {type WhatsAppGatewayPayload, WhatsAppGatewayService} from "@/types/whatsapp-gateway";
 import {Data, Effect, Layer} from "effect";
-import z from "zod";
+import z, { ZodError } from "zod/v4";
 
 const WahaMessageTypeWehbookSchema = z.object({
     id: z.string(),
@@ -89,7 +89,7 @@ export const WahaWhatsappService = Layer.effect(WhatsAppGatewayService)(
             phoneNumber: z.string().min(1, "Missing phone number"),
             apiKey: z.string().min(1, "Missing API key"),
             hmacSecret: z.string().min(1, "Missing HMAC secret"),
-            apiPath: z.string().url().min(1, "missing WAHA hosting URL path (with /api)"),
+            apiPath: z.url().min(1, "missing WAHA hosting URL path (with /api)"),
             session: z.string().min(1, "Missing session identification name")
         });
 
@@ -101,9 +101,17 @@ export const WahaWhatsappService = Layer.effect(WhatsAppGatewayService)(
                 apiPath: process.env.WAHA_API_PATH ?? "",
                 session: process.env.WAHA_SESSION ?? "",
             }),
-            catch: (error) => new WahaConfigError({
-                message: `Configuration validation failed: ${error}`
-            })
+            catch: (error) => {
+                if (error instanceof ZodError) {
+                    const errors = error.issues.flatMap(issue => `\n- ${issue.message}`)
+                    return new WahaConfigError({
+                        message: "Failed to parse your config:\n" + errors
+                    });
+                }
+                return new WahaConfigError({
+                    message: "Failed to parse your config:\n" + String(error)
+                });
+            }
         });
 
         return {
@@ -113,7 +121,7 @@ export const WahaWhatsappService = Layer.effect(WhatsAppGatewayService)(
                     const rawPayload = yield* Effect.try({
                         try: () => JSON.parse(data),
                         catch: (error) => new WahaWebhookError({
-                            message: `Failed to parse JSON data: ${error}`
+                            message: "Failed to parse JSON " + error
                         })
                     });
 
