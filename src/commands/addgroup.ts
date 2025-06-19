@@ -1,7 +1,7 @@
 import { configDatabase } from "@/database/drizzle";
 import { allowedGroups } from "@/database/schemas/config-schema";
 import { CommandExecutor } from "@/services/command-executor";
-import type {EffectCommand } from "@/types/command";
+import type {Command } from "@/types/command";
 import { Effect } from "effect";
 import z from "zod";
 
@@ -10,7 +10,7 @@ const addGroupSchema = z.object({
     rateLimit: z.number().int().positive().optional().default(1000)
 });
 
-const addgroup: EffectCommand = {
+const addgroup: Command = {
     name: "addgroup",
     enabled: true,
     adminOnly: true,

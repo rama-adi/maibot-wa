@@ -1,34 +1,82 @@
 import { renderToReadableStream } from "react-dom/server"
 import DashboardShell from "./shell"
-import DashboardError from "./error"
-import renderLoginPage from "./login"
-import { rateLimiter, commandRouter, whatsapp } from "@/initialize";
-import { listAllowedGroup } from "@/database/queries/allowed-group";
 
+import renderLoginPage from "./login"
+import { listAllowedGroup } from "@/database/queries/allowed-group";
+import { RateLimiterService, DatabaseRateLimiterService } from "@/services/rate-limiter";
+import { Effect, pipe } from "effect";
+import { CommandRouterService, NullCommandRouterService } from "@/services/command-router.ts";
+
+interface DashboardData {
+    rateLimiterStats: readonly {
+        readonly recipient: string;
+        readonly count: number;
+        readonly remaining: number;
+        readonly resetTime: Date;
+    }[];
+    allowedGroups: string[];
+    availableCommands: Array<{
+        name: string;
+        description: string;
+        enabled: boolean;
+        commandAvailableOn?: string;
+    }>;
+    currentTime: string;
+    systemStats: {
+        uptime: number;
+        memoryUsage: NodeJS.MemoryUsage;
+        version: string;
+        platform: string;
+    };
+}
 
 export default async function renderDashboard(req: Bun.BunRequest) {
-   
+
     if (req.cookies.get("DASH_COOKIE") !== process.env.DASHBOARD_KEY) {
         return await renderLoginPage();
     }
 
-    // Gather data from services
-    const rateLimiterStats = await rateLimiter.getStats();
-    const allowedGroups = await listAllowedGroup();
-    const availableCommands = Array.from(commandRouter['commands'].values()).map(cmd => ({
-        name: cmd.name,
-        description: cmd.description,
-        enabled: cmd.enabled,
-        commandAvailableOn: cmd.commandAvailableOn
-    }));
+    // Gather data from services using Effect
+    const program: Effect.Effect<DashboardData, Error, RateLimiterService | CommandRouterService> = Effect.gen(function* () {
+        const rateLimiter = yield* RateLimiterService;
+        const router = yield* CommandRouterService;
+        const rateLimiterStats = yield* rateLimiter.getStats();
+        const allowedGroups = yield* Effect.promise(async () => listAllowedGroup());
 
-    const currentTime = new Date().toISOString();
-    const systemStats = {
-        uptime: process.uptime(),
-        memoryUsage: process.memoryUsage(),
-        version: Bun.version,
-        platform: process.platform
-    };
+        // Placeholder for available commands - this would need to be implemented
+        const availableCommands: Array<{
+            name: string;
+            description: string;
+            enabled: boolean;
+            commandAvailableOn?: string;
+        }> = [];
+
+        const currentTime = new Date().toISOString();
+        const systemStats = {
+            uptime: process.uptime(),
+            memoryUsage: process.memoryUsage(),
+            version: Bun.version,
+            platform: process.platform
+        };
+
+        return {
+            rateLimiterStats,
+            allowedGroups,
+            availableCommands,
+            currentTime,
+            systemStats
+        };
+    });
+
+    const result: DashboardData = await Effect.runPromise(
+        pipe(
+            program,
+            Effect.provide(DatabaseRateLimiterService),
+            Effect.provide(NullCommandRouterService),
+        )
+    );
+
+    const { rateLimiterStats, allowedGroups, availableCommands, currentTime, systemStats } = result;
 
     return new Response(
         await renderToReadableStream(
@@ -50,7 +98,7 @@ export default async function renderDashboard(req: Bun.BunRequest) {
                             </div>
                             <div className="bg-white rounded-lg shadow p-6">
                                 <h3 className="text-lg font-semibold text-gray-900 mb-2">Available Commands</h3>
-                                <p className="text-3xl font-bold text-green-600">{availableCommands.filter(cmd => cmd.enabled).length}</p>
+                                <p className="text-3xl font-bold text-green-600">{availableCommands.filter((cmd) => cmd.enabled).length}</p>
                                 <p className="text-sm text-gray-500">Enabled commands</p>
                             </div>
                             <div className="bg-white rounded-lg shadow p-6">
@@ -93,7 +141,7 @@ export default async function renderDashboard(req: Bun.BunRequest) {
                                                         <div className="w-full bg-gray-200 rounded-full h-2 mb-2">
                                                             <div
                                                                 className={`h-2 rounded-full ${percentage > 80 ? 'bg-red-500' :
-                                                                        percentage > 60 ? 'bg-yellow-500' : 'bg-green-500'
+                                                                    percentage > 60 ? 'bg-yellow-500' : 'bg-green-500'
                                                                     }`}
                                                                 style={{ width: `${percentage}%` }}
                                                             ></div>
@@ -201,8 +249,8 @@ export default async function renderDashboard(req: Bun.BunRequest) {
                                         </div>
                                     </div>
                                 </div>
+                            </div>
                         </div>
-                    </div>
 
 
                         {/* Real-time Activity Log */}
@@ -220,8 +268,8 @@ export default async function renderDashboard(req: Bun.BunRequest) {
                                         <div className="text-gray-500">Waiting for activity...</div>
                                     </div>
                                     <div className="mt-4 flex justify-between items-center">
-                                        <button 
-                                            id="clear-logs" 
+                                        <button
+                                            id="clear-logs"
                                             className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 text-sm"
                                         >
                                             Clear Logs

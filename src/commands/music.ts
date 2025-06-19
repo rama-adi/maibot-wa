@@ -1,10 +1,10 @@
-import { findUserByPhoneWithFavSong } from "@/database/queries/user-query";
-import { CommandExecutor } from "@/services/command-executor";
-import { searchSongByTitle } from "@/services/typesense";
-import type { Command, EffectCommand } from "@/types/command";
-import { Effect } from "effect";
+import {findUserByPhoneWithFavSong} from "@/database/queries/user-query";
+import {CommandExecutor} from "@/services/command-executor";
+import {searchSongByTitle} from "@/services/typesense";
+import type {Command} from "@/types/command";
+import {Effect} from "effect";
 
-const minfo: EffectCommand = {
+const minfo: Command = {
     name: "music",
     enabled: true,
     adminOnly: false,

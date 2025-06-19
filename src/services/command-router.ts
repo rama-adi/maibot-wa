@@ -1,106 +1,135 @@
 import { readdirSync } from "fs";
 import { resolve } from "path";
-import type { Command, CommandContext, CommandRouterOptions } from "@/types/command";
+import { Context, Effect, Layer, Array } from "effect";
+import type { Command, CommandContext } from "@/types/command";
 import type { WhatsAppGatewayPayload } from "@/types/whatsapp-gateway";
-import { sendToLogger } from "@/services/logger";
+import { WhatsAppGatewayService } from "@/types/whatsapp-gateway";
+import { RateLimiterService } from "@/services/rate-limiter";
+import { CommandExecutor, createCommandExecutor } from "./command-executor";
 import { configDatabase } from "@/database/drizzle";
 import { admins } from "@/database/schemas/config-schema";
 
-export class CommandRouter {
-    private commands = new Map<string, Command>();
-    constructor(private opts: CommandRouterOptions) { }
+export class CommandRouterService extends Context.Tag("CommandRouterService")<
+    CommandRouterService,
+    {
+        loadCommands: () => Effect.Effect<void, Error>;
+        handle: (payload: WhatsAppGatewayPayload) => Effect.Effect<void, Error, WhatsAppGatewayService | RateLimiterService>;
+    }
+>() { }
 
-    /** Scan `src/commands` and dynamically import all handlers */
-    public async loadCommands() {
-        const dir = resolve(__dirname, "../commands");
-        const loadedCommands: { name: string, file: string }[] = [];
-        
-        for (const file of readdirSync(dir)) {
-            if (!file.match(/\.[tj]s$/)) continue;
-            const mod = await import(resolve(dir, file));
+const commonLoadCommand = (commands: Map<string, Command>) => Effect.gen(function* () {
+    const dir = resolve(__dirname, "../commands");
+    const loadedCommands: { name: string, file: string }[] = [];
+
+    const files = readdirSync(dir).filter(file => file.match(/\.[tj]s$/));
+
+    for (const file of files) {
+        try {
+            const mod = yield* Effect.promise(() => import(resolve(dir, file)));
             const cmd: Command = mod.default;
+
             if (cmd?.name) {
-                this.commands.set(cmd.name, cmd);
+                commands.set(cmd.name, cmd);
                 loadedCommands.push({
                     name: cmd.name,
                     file: file
                 });
             }
+        } catch (error) {
+            yield* Effect.fail(new Error(`Failed to load command from ${file}: ${error}`));
         }
-
-        console.log(`✅ ${loadedCommands.length} Commands loaded!`);
-        console.table(loadedCommands);
     }
 
-    /** Route an incoming WhatsApp payload to its command */
-    public async handle(payload: WhatsAppGatewayPayload) {
-        const adminIds = (await configDatabase
-            .select({ id: admins.id })
-            .from(admins))
-            .map(row => row.id);
+    console.log(`✅ ${loadedCommands.length} Effect Commands loaded!`);
+    console.table(loadedCommands);
+});
 
-        // Debug logging to track command execution
-        sendToLogger(`🔍 Processing message: "${payload.message}" sent by ${payload.sender}`);
-        
-        // split into [command, ...rest]
-        const [cmdName = "", ...rest] = payload.message.trim().split(/\s+/);
-        const rawArgs = rest.join(" ");
+export const NullCommandRouterService = Layer.effect(CommandRouterService)(
+    Effect.gen(function* () {
+        const commands = new Map<string, Command>();
 
-        sendToLogger(`🔍 Parsed command: "${cmdName}", args: "${rawArgs}"`);
+        const loadCommands = () => commonLoadCommand(commands);
 
-        const cmd = this.commands.get(cmdName.toLowerCase());
-        if (!cmd) {
-            // no such command
-            sendToLogger(`❌ Unknown command: "${cmdName}"`);
-            return this.opts.onError(
-                payload,
-                `Unknown command "${cmdName}". Try "help" to list available commands.`
-            );
-        }
+        const handle = (_: WhatsAppGatewayPayload) => Effect.gen(function* () {
+            return yield* Effect.void;
+        })
 
-        const isAdmin = adminIds.includes(payload.number) || payload.number === "INTERNAL_ADMIN";
-
-        if(cmd.adminOnly && !isAdmin) {
-            return this.opts.onError(
-                payload,
-                `Command "${cmdName}" is only available for administrators.`
-            );
-        }
-
-        sendToLogger(`✅ Executing command: "${cmd.name}"`);
-
-        // Check command availability based on context
-        const isGroup = payload.group;
-        if (cmd.commandAvailableOn === "group" && !isGroup) {
-            return this.opts.onError(
-                payload,
-                `Command "${cmdName}" is only available in groups.`
-            );
-        }
-        if (cmd.commandAvailableOn === "private" && isGroup) {
-            return this.opts.onError(
-                payload,
-                `Command "${cmdName}" is only available in private messages.`
-            );
-        }
-
-        const ctx: CommandContext = {
-            rawParams: rawArgs,
-            isAdmin,
-            availableCommands: Array.from(this.commands.values()).map(({ execute, ...cmd }) => cmd),
-            rawPayload: payload,
-            reply: async (msg: string) => {
-                return this.opts.onSend(payload, msg);
-            }
+        return {
+            loadCommands,
+            handle,
         };
+    })
+);
 
-        try {
-            await cmd.execute(ctx);
-            sendToLogger(`✅ Command "${cmd.name}" completed successfully`);
-        } catch (err) {
-            sendToLogger(`❌ Command "${cmd.name}" failed: ${err}`);
-            // bubble to your error reporter
-            await this.opts.onError(payload, err);
-        }
-    }
-}
+export const CommandRouterServiceLive = Layer.effect(CommandRouterService)(
+    Effect.gen(function* () {
+        const commands = new Map<string, Command>();
+
+        const loadCommands = () => commonLoadCommand(commands);
+
+        const handle = (payload: WhatsAppGatewayPayload) =>
+            // Provide the executor context once for the entire handle operation
+            Effect.gen(function* () {
+                const executor = yield* CommandExecutor;
+
+                // Get admin IDs
+                const adminRows = yield* Effect.promise(() =>
+                    configDatabase
+                        .select({ id: admins.id })
+                        .from(admins)
+                );
+                const adminIds = adminRows.map(row => row.id);
+
+                // Parse command
+                const [cmdName = "", ...rest] = payload.message.trim().split(/\s+/);
+                const rawArgs = rest.join(" ");
+
+                console.log(`🔍 Processing Effect command: "${cmdName}", args: "${rawArgs}"`);
+
+                const cmd = commands.get(cmdName.toLowerCase());
+                if (!cmd) {
+                    yield* executor.reply(`Unknown command "${cmdName}". Try "help" to list available commands.`);
+                    return;
+                }
+
+                const isAdmin = adminIds.includes(payload.number) || payload.number === "INTERNAL_ADMIN";
+
+                // Admin check
+                if (cmd.adminOnly && !isAdmin) {
+                    yield* executor.reply(`Command "${cmdName}" is only available for administrators.`);
+                    return;
+                }
+
+                // Context availability check
+                const isGroup = payload.group;
+                if (cmd.commandAvailableOn === "group" && !isGroup) {
+                    yield* executor.reply(`Command "${cmdName}" is only available in groups.`);
+                    return;
+                }
+                if (cmd.commandAvailableOn === "private" && isGroup) {
+                    yield* executor.reply(`Command "${cmdName}" is only available in private messages.`);
+                    return;
+                }
+
+                // Build command context
+                const ctx: CommandContext = {
+                    rawParams: rawArgs,
+                    isAdmin,
+                    availableCommands: Array.fromIterable(commands.values()).map(({ execute, ...cmd }) => cmd),
+                    rawPayload: payload,
+                };
+
+                // Execute command
+                console.log(`✅ Executing Effect command: "${cmd.name}"`);
+                yield* cmd.execute(ctx);
+            }).pipe(
+                // Provide the executor context once for the entire operation
+                Effect.provide(createCommandExecutor(payload))
+            );
+
+        return {
+            loadCommands,
+            handle,
+        };
+    })
+); 

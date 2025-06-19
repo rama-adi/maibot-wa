@@ -1,8 +1,8 @@
 import { Effect } from "effect";
-import type { EffectCommand } from "@/types/command";
+import type { Command } from "@/types/command";
 import { CommandExecutor } from "@/services/command-executor";
 
-const help: EffectCommand = {
+const help: Command = {
     name: "help",
     adminOnly: false,
     enabled: true,

@@ -1,18 +1,56 @@
 import { cleanupController, setupLoggerOnce } from "@/services/logger";
 import type { BunRequest } from "bun";
 import renderDashboard from "@/web/dashboard/render-dashboard";
-import { CommandRouter } from "@/services/command-router";
 import { handleBookmarkletIngestRequest, handleIngestRequest } from "./bookmarklet/bookmarklet";
 import renderCommandPage from "./dashboard/command-page";
 import renderUsersPage from "./dashboard/list-users";
 import { Effect, Layer } from "effect";
-import { CommandRouterService, CommandRouterServiceLive } from "@/services/effect-command-router";
+import { CommandRouterService, CommandRouterServiceLive } from "@/services/command-router.ts";
 import { WhatsAppGatewayService } from "@/types/whatsapp-gateway";
-import { NullRateLimiterService } from "@/services/rate-limiter";
+import { DatabaseRateLimiterService, NullRateLimiterService } from "@/services/rate-limiter";
+import { WahaWhatsappService } from "@/services/waha.ts";
 
 export const webHandler = {
     "/": async (req: BunRequest) => {
         return new Response("Bot running!");
+    },
+    "/webhook": {
+        async POST(req: BunRequest) {
+            const MainLayer = Layer.mergeAll(
+                WahaWhatsappService,
+                DatabaseRateLimiterService,
+                CommandRouterServiceLive
+            );
+
+            try {
+                const program = Effect.gen(function* () {
+                    const router = yield* CommandRouterService;
+                    const whatsapp = yield* WhatsAppGatewayService;
+
+                    yield* router.loadCommands();
+
+                    const bodyText = yield* Effect.tryPromise({
+                        try: () => req.text(),
+                        catch: (err) => new Error(`Fail to decode body: ${err}`),
+                    });
+                    const response = yield* whatsapp.handleWebhook(bodyText, req.headers);
+
+                    return response;
+                });
+
+                await Effect.runPromise(program.pipe(Effect.provide(MainLayer)));
+                return Response.json({ result: "Webhook processed successfully" });
+            } catch (error) {
+                console.error("Webhook processing failed:", error);
+                return Response.json({
+                    result: `❌ Webhook failed: ${error instanceof Error ? error.message : String(error)}`
+                }, { status: 500 });
+            }
+        },
+
+        async GET(req: BunRequest) {
+            return new Response("Bot running!");
+        }
     },
     "/dashboard/streams": async (req: BunRequest) => {
         if (req.cookies.get("DASH_COOKIE") !== process.env.DASHBOARD_KEY) {
@@ -108,8 +146,6 @@ export const webHandler = {
             return await renderCommandPage(req);
         },
         async POST(req: BunRequest) {
-
-        
             if (req.cookies.get("DASH_COOKIE") !== process.env.DASHBOARD_KEY) {
                 return new Response(null, {
                     status: 401

@@ -1,11 +1,11 @@
 import { configDatabase } from "@/database/drizzle";
-import { admins, allowedGroups } from "@/database/schemas/config-schema";
+import { admins } from "@/database/schemas/config-schema";
 import { CommandExecutor } from "@/services/command-executor";
-import type { Command, EffectCommand } from "@/types/command";
+import type { Command } from "@/types/command";
 import { Effect } from "effect";
 import z from "zod";
 
-const addadmin: EffectCommand = {
+const addadmin: Command = {
     name: "addadmin",
     enabled: true,
     adminOnly: true,

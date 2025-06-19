@@ -16,17 +16,10 @@ export type WhatsAppGatewayPayload = {
     number: string;
     name: string;
 }
-
 export class WhatsappGatewayCapabilityInvalid extends Data.TaggedError("WhatsappGatewayCapabilityInvalid")<{
     capability: WhatsAppGatewayCapability
 }> { }
 
-export interface WhatsAppGateway {
-    handleWebhook(data: string): Promise<WhatsAppGatewayPayload | null>
-    sendMessage(to: string, sender: string, message: string): void | Promise<void>
-}
-
-// Retrofit for now
 export class WhatsAppGatewayService extends Context.Tag("WhatsappGatewayService")<
     WhatsAppGatewayService,
     {

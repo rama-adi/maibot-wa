@@ -1,5 +1,5 @@
 import { CommandExecutor } from "@/services/command-executor";
-import type { EffectCommand } from "@/types/command";
+import type { Command } from "@/types/command";
 import { Effect, Array, Option, pipe } from "effect";
 
 interface GateCondition {
@@ -238,7 +238,7 @@ const buildGateDetailResponse = (gate: Gate): Effect.Effect<string> =>
         return response;
     });
 
-const gateinfo: EffectCommand = {
+const gateinfo: Command = {
     name: "gateinfo",
     enabled: true,
     adminOnly: false,

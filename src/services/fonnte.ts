@@ -1,4 +1,4 @@
-import { WhatsappGatewayCapabilityInvalid, WhatsAppGatewayService, type WhatsAppGateway, type WhatsAppGatewayPayload } from "@/types/whatsapp-gateway";
+import { WhatsappGatewayCapabilityInvalid, WhatsAppGatewayService, type WhatsAppGatewayPayload } from "@/types/whatsapp-gateway";
 import { sendToLogger } from "./logger";
 import { Effect, Layer, Data } from "effect";
 import { z } from "zod";
@@ -170,76 +170,4 @@ export const FonnteWhatsappService = Layer.effect(WhatsAppGatewayService)(
                 )
         };
     })
-)
-
-// Keep the original class for now during the retrofit process
-export class Fonnte implements WhatsAppGateway {
-    private phoneNumber: string;
-    private apiKey: string;
-
-    constructor(params: { phoneNumber: string, apiKey: string }) {
-        this.phoneNumber = params.phoneNumber;
-        this.apiKey = params.apiKey;
-    }
-
-    async handleWebhook(data: string): Promise<WhatsAppGatewayPayload | null> {
-        try {
-            const rawPayload = JSON.parse(data);
-            const payload = FonnteWebhookPayloadSchema.parse(rawPayload);
-
-            const messageParts = payload.message.split(" ");
-
-            if (payload.isgroup) {
-                if (
-                    !messageParts[0] ||
-                    !messageParts[0].toLowerCase().includes(`@${this.phoneNumber}`)
-                ) {
-                    return null;
-                }
-            }
-
-            const message = payload.message.replace(`@${this.phoneNumber}`, "").trim();
-            sendToLogger(`➡️ Sender: ${payload.sender} (${payload.member}), Message: ${payload.message}`);
-
-            if (payload.isgroup) {
-                return {
-                    messageId: null,
-                    sender: payload.sender,
-                    message: message,
-                    group: payload.isgroup,
-                    number: payload.member,
-                    name: payload.name
-                }
-            }
-
-            return {
-                messageId: null,
-                sender: payload.sender,
-                message: message,
-                group: false,
-                number: payload.sender,
-                name: payload.name
-            }
-        } catch (error) {
-            throw new Error(`Failed to handle webhook: ${error}`);
-        }
-    }
-
-    async sendMessage(to: string, message: string): Promise<void> {
-        const url = `https://api.fonnte.com/send`;
-        const response = await fetch(url, {
-            method: "POST",
-            body: JSON.stringify({
-                target: to,
-                message: message
-            }),
-            headers: {
-                "Authorization": `${this.apiKey}`,
-                "Content-Type": "application/json"
-            }
-        })
-        if (!response.ok) {
-            throw new Error("Failed to send message")
-        }
-    }
-}
+);

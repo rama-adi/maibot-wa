@@ -1,5 +1,5 @@
 import { findUserByPhone } from "@/database/queries/user-query";
-import type { EffectCommand } from "@/types/command";
+import type { Command } from "@/types/command";
 import { z } from "zod";
 import { setUserDetail } from "@/database/queries/user-query";
 import { findSongByInternalId } from "@/database/queries/song-queries";
@@ -12,7 +12,7 @@ const setmeSchema = z.object({
     favSong: z.number().optional(),
 })
 
-const setme: EffectCommand = {
+const setme: Command = {
     name: "setme",
     adminOnly: false,
     enabled: true,

@@ -1,9 +1,9 @@
-import { findUserByPhoneWithFavSong } from "@/database/queries/user-query";
-import { CommandExecutor } from "@/services/command-executor";
-import type { Command, EffectCommand } from "@/types/command";
-import { Effect } from "effect";
+import {findUserByPhoneWithFavSong} from "@/database/queries/user-query";
+import {CommandExecutor} from "@/services/command-executor";
+import type {Command} from "@/types/command";
+import {Effect} from "effect";
 
-const me: EffectCommand = {
+const me: Command = {
     name: "me",
     adminOnly: false,
     enabled: true,
