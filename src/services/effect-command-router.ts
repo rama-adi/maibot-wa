@@ -1,6 +1,6 @@
 import { readdirSync } from "fs";
 import { resolve } from "path";
-import { Context, Effect, Layer, Array, pipe } from "effect";
+import { Context, Effect, Layer, Array } from "effect";
 import type { EffectCommand, EffectCommandContext } from "@/types/command";
 import type { WhatsAppGatewayPayload } from "@/types/whatsapp-gateway";
 import { WhatsAppGatewayService } from "@/types/whatsapp-gateway";
@@ -41,7 +41,6 @@ export const CommandRouterServiceLive = Layer.effect(CommandRouterService)(
                             });
                         }
                     } catch (error) {
-                        console.error(`Failed to load command from ${file}:`, error);
                         yield* Effect.fail(new Error(`Failed to load command from ${file}: ${error}`));
                     }
                 }
@@ -51,14 +50,16 @@ export const CommandRouterServiceLive = Layer.effect(CommandRouterService)(
             });
 
         const handle = (payload: WhatsAppGatewayPayload) =>
+            // Provide the executor context once for the entire handle operation
             Effect.gen(function* () {
+                const executor = yield* CommandExecutor;
+
                 // Get admin IDs
                 const adminRows = yield* Effect.promise(() =>
                     configDatabase
                         .select({ id: admins.id })
                         .from(admins)
                 );
-
                 const adminIds = adminRows.map(row => row.id);
 
                 // Parse command
@@ -69,11 +70,7 @@ export const CommandRouterServiceLive = Layer.effect(CommandRouterService)(
 
                 const cmd = commands.get(cmdName.toLowerCase());
                 if (!cmd) {
-                    // Create executor for this payload and send error
-                    yield* Effect.gen(function* () {
-                        const executor = yield* CommandExecutor;
-                        yield* executor.reply(`Unknown command "${cmdName}". Try "help" to list available commands.`);
-                    }).pipe(Effect.provide(createCommandExecutor(payload)));
+                    yield* executor.reply(`Unknown command "${cmdName}". Try "help" to list available commands.`);
                     return;
                 }
 
@@ -81,28 +78,18 @@ export const CommandRouterServiceLive = Layer.effect(CommandRouterService)(
 
                 // Admin check
                 if (cmd.adminOnly && !isAdmin) {
-                    yield* Effect.gen(function* () {
-                        const executor = yield* CommandExecutor;
-                        yield* executor.reply(`Command "${cmdName}" is only available for administrators.`);
-                    }).pipe(Effect.provide(createCommandExecutor(payload)));
+                    yield* executor.reply(`Command "${cmdName}" is only available for administrators.`);
                     return;
                 }
 
                 // Context availability check
                 const isGroup = payload.group;
                 if (cmd.commandAvailableOn === "group" && !isGroup) {
-                    yield* Effect.gen(function* () {
-                        const executor = yield* CommandExecutor;
-                        yield* executor.reply(`Command "${cmdName}" is only available in groups.`);
-                    }).pipe(Effect.provide(createCommandExecutor(payload)));
+                    yield* executor.reply(`Command "${cmdName}" is only available in groups.`);
                     return;
                 }
-                
                 if (cmd.commandAvailableOn === "private" && isGroup) {
-                    yield* Effect.gen(function* () {
-                        const executor = yield* CommandExecutor;
-                        yield* executor.reply(`Command "${cmdName}" is only available in private messages.`);
-                    }).pipe(Effect.provide(createCommandExecutor(payload)));
+                    yield* executor.reply(`Command "${cmdName}" is only available in private messages.`);
                     return;
                 }
 
@@ -114,11 +101,13 @@ export const CommandRouterServiceLive = Layer.effect(CommandRouterService)(
                     rawPayload: payload,
                 };
 
-                // Execute command with payload-specific executor
+                // Execute command
                 console.log(`✅ Executing Effect command: "${cmd.name}"`);
-                yield* cmd.execute(ctx).pipe(Effect.provide(createCommandExecutor(payload)));
-                console.log(`✅ Effect command "${cmd.name}" completed successfully`);
-            });
+                yield* cmd.execute(ctx);
+            }).pipe(
+                // Provide the executor context once for the entire operation
+                Effect.provide(createCommandExecutor(payload))
+            );
 
         return {
             loadCommands,

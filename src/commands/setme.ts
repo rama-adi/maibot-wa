@@ -1,8 +1,10 @@
 import { findUserByPhone } from "@/database/queries/user-query";
-import type { Command } from "@/types/command";
+import type { EffectCommand } from "@/types/command";
 import { z } from "zod";
 import { setUserDetail } from "@/database/queries/user-query";
 import { findSongByInternalId } from "@/database/queries/song-queries";
+import { Effect } from "effect";
+import { CommandExecutor } from "@/services/command-executor";
 
 const setmeSchema = z.object({
     name: z.string().optional(),
@@ -10,16 +12,17 @@ const setmeSchema = z.object({
     favSong: z.number().optional(),
 })
 
-const setme: Command = {
+const setme: EffectCommand = {
     name: "setme",
     adminOnly: false,
     enabled: true,
     description: "Atur detail informasi akun anda",
     commandAvailableOn: "both",
     usageExample: "`setme name john doe, bio i love maimai, favsong 123`",
-    execute: async (ctx) => {
+    execute: (ctx) => Effect.gen(function* () {
+        const executor = yield* CommandExecutor;
         const rawParams = ctx.rawParams.trim();
-        const user = await findUserByPhone(ctx.rawPayload);
+        const user = yield* Effect.promise(() => findUserByPhone(ctx.rawPayload));
 
         // Show current info if no parameters
         if (!rawParams) {
@@ -32,22 +35,22 @@ const setme: Command = {
             message += "Terima kasih telah menggunakan MaiBot! 🙏\n\n";
             message += "💡 Untuk mengubah informasi, gunakan:\n";
             message += "`setme name <nama>, bio <bio>, favsong <nomor>`";
-            return await ctx.reply(message);
+            return yield* executor.reply(message);
         }
 
         try {
             const validatedParams = setmeSchema.parse(parseSetmeParams(rawParams));
-            
+
             if (!validatedParams.name && !validatedParams.bio && !validatedParams.favSong) {
-                return await ctx.reply("❌ Format tidak valid!\n\nGunakan: `setme name <nama>, bio <bio>, favsong <nomor>`\n\nContoh: `setme name John Doe, bio Saya suka maimai, favsong 123`");
+                return yield* executor.reply("❌ Format tidak valid!\n\nGunakan: `setme name <nama>, bio <bio>, favsong <nomor>`\n\nContoh: `setme name John Doe, bio Saya suka maimai, favsong 123`");
             }
 
             // Validate song ID and get song details if provided
             let songDetails = null;
             if (validatedParams.favSong) {
-                songDetails = await findSongByInternalId(validatedParams.favSong);
+                songDetails = yield* Effect.promise(() => findSongByInternalId(validatedParams.favSong || 0));
                 if (!songDetails) {
-                    return await ctx.reply("❌ ID lagu tidak valid! Pastikan ID lagu yang dimasukkan benar.");
+                    return yield* executor.reply("❌ ID lagu tidak valid! Pastikan ID lagu yang dimasukkan benar.");
                 }
             }
 
@@ -64,28 +67,28 @@ const setme: Command = {
 
             // Dry run for admin
             if (ctx.rawPayload.number === "INTERNAL_ADMIN") {
-                return await ctx.reply(buildResultMessage(true));
+                return yield* executor.reply(buildResultMessage(true));
             }
 
             if (!user.phoneNumberHash) {
-                return await ctx.reply("❌ Terjadi kesalahan sistem. Silakan coba lagi.");
+                return yield* executor.reply("❌ Terjadi kesalahan sistem. Silakan coba lagi.");
             }
 
-            await setUserDetail(user.phoneNumberHash, validatedParams);
-            await ctx.reply(buildResultMessage());
+            yield* Effect.promise(() => setUserDetail(user.phoneNumberHash, validatedParams));
+            yield* executor.reply(buildResultMessage());
 
         } catch (error) {
-            const message = error instanceof z.ZodError 
+            const message = error instanceof z.ZodError
                 ? "❌ Format parameter tidak valid!\n\nGunakan: `setme name <nama>, bio <bio>, favsong <nomor>`"
                 : "❌ Terjadi kesalahan saat memperbarui informasi. Silakan coba lagi.";
-            
+
             if (!(error instanceof z.ZodError)) {
                 console.error('Error updating user details:', error);
             }
-            
-            await ctx.reply(message);
+
+            yield* executor.reply(message);
         }
-    }
+    })
 }
 
 function parseSetmeParams(rawParams: string): { name?: string, bio?: string, favSong?: number } {
@@ -93,7 +96,7 @@ function parseSetmeParams(rawParams: string): { name?: string, bio?: string, fav
     const parts = rawParams.split(',');
     let currentField = '';
     let currentValue = '';
-    
+
     const saveField = () => {
         if (currentField && currentValue) {
             if (currentField === 'favSong') {
@@ -106,10 +109,10 @@ function parseSetmeParams(rawParams: string): { name?: string, bio?: string, fav
             }
         }
     };
-    
+
     for (const part of parts) {
         const trimmed = part.trim();
-        
+
         if (trimmed.startsWith('name ')) {
             saveField();
             currentField = 'name';
@@ -126,7 +129,7 @@ function parseSetmeParams(rawParams: string): { name?: string, bio?: string, fav
             currentValue += (currentValue ? ', ' : '') + trimmed;
         }
     }
-    
+
     saveField();
     return result;
 }

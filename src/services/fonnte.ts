@@ -1,4 +1,4 @@
-import { WhatsAppGatewayService, type WhatsAppGateway, type WhatsAppGatewayPayload } from "@/types/whatsapp-gateway";
+import { WhatsappGatewayCapabilityInvalid, WhatsAppGatewayService, type WhatsAppGateway, type WhatsAppGatewayPayload } from "@/types/whatsapp-gateway";
 import { sendToLogger } from "./logger";
 import { Effect, Layer, Data } from "effect";
 import { z } from "zod";
@@ -60,6 +60,7 @@ export const FonnteWhatsappService = Layer.effect(WhatsAppGatewayService)(
         });
 
         return {
+            capabilities: ["sendMessage"],
             handleWebhook: (data: string) =>
                 Effect.gen(function* () {
                     const rawPayload = yield* Effect.try({
@@ -96,6 +97,7 @@ export const FonnteWhatsappService = Layer.effect(WhatsAppGatewayService)(
 
                     const result: WhatsAppGatewayPayload = payload.isgroup
                         ? {
+                            messageId: null,
                             sender: payload.sender,
                             message: message,
                             group: payload.isgroup,
@@ -103,6 +105,7 @@ export const FonnteWhatsappService = Layer.effect(WhatsAppGatewayService)(
                             name: payload.name
                         }
                         : {
+                            messageId: null,
                             sender: payload.sender,
                             message: message,
                             group: false,
@@ -114,6 +117,12 @@ export const FonnteWhatsappService = Layer.effect(WhatsAppGatewayService)(
                 }).pipe(
                     Effect.mapError((error) => new Error(`Webhook error: ${error}`))
                 ),
+
+            sendReply: (_) => Effect.gen(function* () {
+                return yield* Effect.fail(new WhatsappGatewayCapabilityInvalid({
+                    capability: "sendContextualReply"
+                }))
+            }),
 
             sendMessage: (data: { to: string, message: string }) =>
                 Effect.gen(function* () {
@@ -194,6 +203,7 @@ export class Fonnte implements WhatsAppGateway {
 
             if (payload.isgroup) {
                 return {
+                    messageId: null,
                     sender: payload.sender,
                     message: message,
                     group: payload.isgroup,
@@ -203,6 +213,7 @@ export class Fonnte implements WhatsAppGateway {
             }
 
             return {
+                messageId: null,
                 sender: payload.sender,
                 message: message,
                 group: false,

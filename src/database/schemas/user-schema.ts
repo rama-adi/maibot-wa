@@ -2,7 +2,7 @@ import { sqliteTable, text, integer, index } from 'drizzle-orm/sqlite-core';
 
 export const users = sqliteTable('users', {
     id: integer('id').primaryKey(),
-    phoneNumberHash: text("phone_number_hash").unique(),
+    phoneNumberHash: text("phone_number_hash").notNull().unique(),
     publicId: text('public_id').unique().notNull(), 
     name: text('name').notNull(),
     isBanned: integer('is_banned', { mode: 'boolean' }).notNull(),

@@ -1,4 +1,6 @@
-import type { Command } from "@/types/command";
+import { CommandExecutor } from "@/services/command-executor";
+import type { EffectCommand } from "@/types/command";
+import { Effect, Array, Option, pipe } from "effect";
 
 interface GateCondition {
     life: number;
@@ -32,30 +34,30 @@ const CONDITION_PROGRESSION: GateCondition[] = [
     { life: 999, requiredDifficulty: "Basic", daysFromRelease: 21 }
 ];
 
-function getCurrentCondition(startDate: Date): GateCondition {
-    const now = new Date();
-    const japanOffset = 9 * 60; // Japan is UTC+9
-    const nowInJapan = new Date(now.getTime() + (japanOffset * 60 * 1000) - (now.getTimezoneOffset() * 60 * 1000));
-    const daysSinceRelease = Math.floor((nowInJapan.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+const getCurrentCondition = (startDate: Date): Effect.Effect<GateCondition> =>
+    Effect.gen(function* () {
+        const now = new Date();
+        const japanOffset = 9 * 60; // Japan is UTC+9
+        const nowInJapan = new Date(now.getTime() + (japanOffset * 60 * 1000) - (now.getTimezoneOffset() * 60 * 1000));
+        const daysSinceRelease = Math.floor((nowInJapan.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
 
-    // Find the appropriate condition based on days since release
-    for (let i = CONDITION_PROGRESSION.length - 1; i >= 0; i--) {
-        if (daysSinceRelease >= CONDITION_PROGRESSION[i].daysFromRelease) {
-            return CONDITION_PROGRESSION[i];
-        }
-    }
+        // Find the appropriate condition based on days since release
+        const condition = pipe(
+            CONDITION_PROGRESSION,
+            Array.reverse,
+            Array.findFirst(c => daysSinceRelease >= c.daysFromRelease),
+            Option.getOrElse(() => CONDITION_PROGRESSION[0])
+        );
 
-    // If gate hasn't been released yet, return the first condition
-    return CONDITION_PROGRESSION[0];
-}
+        return condition;
+    });
 
-function formatDate(date: Date): string {
-    return date.toLocaleDateString('id-ID', {
+const formatDate = (date: Date): Effect.Effect<string> =>
+    Effect.succeed(date.toLocaleDateString('id-ID', {
         year: 'numeric',
         month: 'long',
         day: 'numeric'
-    });
-}
+    }));
 
 const GATES: Gate[] = [
     {
@@ -150,51 +152,54 @@ const GATES: Gate[] = [
     }
 ];
 
-const gateinfo: Command = {
-    name: "gateinfo",
-    enabled: true,
-    adminOnly: false,
-    description: "Dapatkan informasi tentang gate KALEID×SCOPE",
-    usageExample: "`gateinfo` / `gateinfo blue`",
-    commandAvailableOn: "both",
-    execute: async (ctx) => {
-        const now = new Date();
-        const gateId = ctx.rawParams.trim().toLowerCase();
+const findGateById = (gateId: string): Effect.Effect<Gate, Error> =>
+    pipe(
+        GATES,
+        Array.findFirst(g => g.id.toLowerCase() === gateId.toLowerCase()),
+        Option.match({
+            onNone: () => Effect.fail(new Error(`Gate "${gateId}" tidak ditemukan`)),
+            onSome: gate => Effect.succeed(gate)
+        })
+    );
 
-        // If no gate ID provided, show all gates
-        if (!gateId) {
-            let response = "🌟 *Informasi Gate KALEID×SCOPE (Server Asia)* 🌟\n\n";
-            response += "Gate yang tersedia:\n";
-            GATES.forEach(gate => {
+const buildAllGatesResponse = (): Effect.Effect<string> =>
+    Effect.gen(function* () {
+        let response = "🌟 *Informasi Gate KALEID×SCOPE (Server Asia)* 🌟\n\n";
+        response += "Gate yang tersedia:\n";
+
+        const gateList = pipe(
+            GATES,
+            Array.map(gate => {
                 const isReleased = gate.startDate.getFullYear() !== 2099;
                 const status = isReleased ? "✅ Sudah dirilis" : "🔜 Segera hadir";
-                response += `• *${gate.id}* - ${gate.name} (${gate.nameJp}) - ${status}\n`;
-            });
-            response += "\nGunakan `gateinfo <gate_id>` untuk informasi detail tentang gate tertentu.";
-            await ctx.reply(response);
-            return;
-        }
+                return `• *${gate.id}* - ${gate.name} (${gate.nameJp}) - ${status}`;
+            }),
+            Array.join("\n")
+        );
 
-        const gate = GATES.find(g => g.id.toLowerCase() === gateId);
-        if (!gate) {
-            await ctx.reply(`Gate "${gateId}" tidak ditemukan. Gunakan "gateinfo" untuk melihat daftar gate yang tersedia.`);
-            return;
-        }
+        response += gateList;
+        response += "\n\nGunakan `gateinfo <gate_id>` untuk informasi detail tentang gate tertentu.";
 
-        // Check if gate has been released and get current condition
+        return response;
+    });
+
+const buildGateDetailResponse = (gate: Gate): Effect.Effect<string> =>
+    Effect.gen(function* () {
+        const now = new Date();
         const isReleased = gate.startDate.getFullYear() !== 2099;
+        const formattedDate = yield* formatDate(gate.startDate);
 
         let response = `🌟 *Detail ${gate.name} (${gate.nameJp})* 🌟\n\n`;
 
         response += `${gate.color} *${gate.name} (${gate.nameJp})*\n`;
-        response += `📅 Tanggal Mulai Asia: ${isReleased ? formatDate(gate.startDate) : "-"}\n`;
+        response += `📅 Tanggal Mulai Asia: ${isReleased ? formattedDate : "-"}\n`;
         response += `📍 Terbuka di: ${gate.unlockedIn}\n`;
         response += `🎵 Lagu: ${gate.song}\n`;
         response += `🎤 Artist: ${gate.artist}\n`;
         response += `🗺️ Area: ${gate.correspondingArea}\n\n`;
 
         if (isReleased) {
-            const currentCondition = getCurrentCondition(gate.startDate);
+            const currentCondition = yield* getCurrentCondition(gate.startDate);
             const daysSinceRelease = Math.floor((now.getTime() - gate.startDate.getTime()) / (1000 * 60 * 60 * 24));
 
             response += "*Kondisi Saat Ini:*\n";
@@ -202,16 +207,17 @@ const gateinfo: Command = {
             response += `• Dirilis ${daysSinceRelease} hari yang lalu\n\n`;
 
             // Show next condition if not at maximum
-            const nextConditionIndex = CONDITION_PROGRESSION.findIndex(c => c.daysFromRelease > daysSinceRelease);
-            if (nextConditionIndex !== -1) {
-                const nextCondition = CONDITION_PROGRESSION[nextConditionIndex];
-                const daysUntilNext = nextCondition.daysFromRelease - daysSinceRelease;
-                response += `*Kondisi Selanjutnya:* ${nextCondition.life} Life (${nextCondition.requiredDifficulty}) dalam ${daysUntilNext} hari\n\n`;
+            const nextCondition = pipe(
+                CONDITION_PROGRESSION,
+                Array.findFirst(c => c.daysFromRelease > daysSinceRelease)
+            );
+
+            if (Option.isSome(nextCondition)) {
+                const daysUntilNext = nextCondition.value.daysFromRelease - daysSinceRelease;
+                response += `*Kondisi Selanjutnya:* ${nextCondition.value.life} Life (${nextCondition.value.requiredDifficulty}) dalam ${daysUntilNext} hari\n\n`;
             } else {
                 response += `*Status:* Kondisi maksimum tercapai (999 Life, difficulty Basic)\n\n`;
             }
-
-
         } else {
             response += `*Status:* 🔜 Belum tersedia untuk server Asia! Syarat mungkin berbeda dengan server Jepang!\n\n`;
         }
@@ -229,8 +235,40 @@ const gateinfo: Command = {
         response += "- Semua 3 track harus dimainkan pada difficulty yang sama\n";
         response += "- Kondisi menjadi lebih mudah berdasarkan hari sejak dirilis\n";
 
-        await ctx.reply(response);
-    }
+        return response;
+    });
+
+const gateinfo: EffectCommand = {
+    name: "gateinfo",
+    enabled: true,
+    adminOnly: false,
+    description: "Dapatkan informasi tentang gate KALEID×SCOPE",
+    usageExample: "`gateinfo` / `gateinfo blue`",
+    commandAvailableOn: "both",
+    execute: (ctx) => Effect.gen(function* () {
+        const executor = yield* CommandExecutor;
+        const gateId = ctx.rawParams.trim();
+
+        // If no gate ID provided, show all gates
+        if (!gateId) {
+            const response = yield* buildAllGatesResponse();
+            yield* executor.reply(response);
+            return;
+        }
+
+        // Find and display specific gate
+        const gate = yield* findGateById(gateId).pipe(
+            Effect.catchAll(error =>
+                Effect.gen(function* () {
+                    yield* executor.reply(`Gate "${gateId}" tidak ditemukan. Gunakan "gateinfo" untuk melihat daftar gate yang tersedia.`);
+                    return yield* Effect.fail(error);
+                })
+            )
+        );
+
+        const response = yield* buildGateDetailResponse(gate);
+        yield* executor.reply(response);
+    })
 }
 
 export default gateinfo;

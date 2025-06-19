@@ -2,11 +2,11 @@ import { Effect } from "effect";
 import type { EffectCommand } from "@/types/command";
 import { CommandExecutor } from "@/services/command-executor";
 
-const effectHelp: EffectCommand = {
-    name: "effecthelp",
+const help: EffectCommand = {
+    name: "help",
     adminOnly: false,
     enabled: true,
-    description: "Tampilkan daftar perintah yang tersedia (Effect version)",
+    description: "Tampilkan daftar perintah yang tersedia",
     commandAvailableOn: "both",
     usageExample: "`effecthelp`",
     execute: (ctx) => Effect.gen(function* () {
@@ -43,4 +43,4 @@ const effectHelp: EffectCommand = {
     })
 };
 
-export default effectHelp; 
+export default help; 

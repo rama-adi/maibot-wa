@@ -29,10 +29,21 @@ export const createCommandExecutor = (payload: WhatsAppGatewayPayload) => Layer.
 
                 const user = yield* Effect.promise(() => findUserByPhone(payload));
 
-                yield* whatsapp.sendMessage({
-                    to: payload.sender,
-                    message: payload.group ? `${user.name}, ${message}` : message
-                });
+                if (
+                    whatsapp.capabilities.includes('sendContextualReply')
+                    && payload.messageId
+                ) {
+                    yield* whatsapp.sendReply({
+                        messageId: payload.messageId,
+                        to: payload.sender,
+                        message: payload.group ? `${user.name}, ${message}` : message
+                    });
+                } else {
+                    yield* whatsapp.sendMessage({
+                        to: payload.sender,
+                        message: payload.group ? `${user.name}, ${message}` : message
+                    });
+                }
 
                 // Record the message after successful send
                 yield* rateLimiter.recordMessage(payload.sender);

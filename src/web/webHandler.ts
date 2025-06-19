@@ -5,6 +5,10 @@ import { CommandRouter } from "@/services/command-router";
 import { handleBookmarkletIngestRequest, handleIngestRequest } from "./bookmarklet/bookmarklet";
 import renderCommandPage from "./dashboard/command-page";
 import renderUsersPage from "./dashboard/list-users";
+import { Effect, Layer } from "effect";
+import { CommandRouterService, CommandRouterServiceLive } from "@/services/effect-command-router";
+import { WhatsAppGatewayService } from "@/types/whatsapp-gateway";
+import { NullRateLimiterService } from "@/services/rate-limiter";
 
 export const webHandler = {
     "/": async (req: BunRequest) => {
@@ -104,6 +108,8 @@ export const webHandler = {
             return await renderCommandPage(req);
         },
         async POST(req: BunRequest) {
+
+        
             if (req.cookies.get("DASH_COOKIE") !== process.env.DASHBOARD_KEY) {
                 return new Response(null, {
                     status: 401
@@ -113,28 +119,71 @@ export const webHandler = {
             const formData = await req.formData();
             const command = formData.get("command")?.toString() ?? "";
 
+            if (command === "") {
+                return Response.json({
+                    result: "Empty command!"
+                });
+            }
             let result = "";
+            const FakeWhatsAppGatewayService = Layer.succeed(
+                WhatsAppGatewayService,
+                {
+                    capabilities: ["sendMessage", "sendContextualReply"],
+                    handleWebhook: (data: string) => Effect.succeed({
+                        sender: "INTERNAL_ADMIN",
+                        messageId: "123",
+                        message: data,
+                        group: false,
+                        number: "INTERNAL_ADMIN",
+                        name: "Tester Admin Account"
+                    }),
+                    sendMessage: (data: { to: string, message: string }) =>
+                        Effect.gen(function* () {
+                            result = "---MSG SENT:\n\n" + data.message;
+                            return "";
+                        }),
+                    sendReply: (data: { to: string, messageId: string, message: string }) =>
+                        Effect.gen(function* () {
+                            result = "---REPLIED:\n\n" + data.message;
+                            return "";
+                        })
+                }
+            );
 
-            const commandRouter = new CommandRouter({
-                onSend: async (_to, msg) => {
-                    result = msg;
-                },
-                onError: async (_to, err) => {
-                    result = `❌ Command failed: ${err}`;
-                },
-            });
+            const MainLayer = Layer.mergeAll(
+                FakeWhatsAppGatewayService,
+                NullRateLimiterService,
+                CommandRouterServiceLive
+            );
 
-            // Load commands on startup
-            await commandRouter.loadCommands();
-            await commandRouter.handle({
-                sender: "INTERNAL_ADMIN",
-                message: command,
-                group: false,
-                number: "INTERNAL_ADMIN",
-                name: "Tester Admin Account"
-            });
+            try {
+                // Execute the command using the Effect system (following the usage example pattern)
+                const program = Effect.gen(function* () {
+                    const router = yield* CommandRouterService;
 
-            return Response.json({ result });
+                    // Load commands
+                    yield* router.loadCommands();
+
+                    // Handle the command
+                    yield* router.handle({
+                        sender: "INTERNAL_ADMIN",
+                        messageId: "123",
+                        message: command,
+                        group: false,
+                        number: "INTERNAL_ADMIN",
+                        name: "Tester Admin Account"
+                    });
+                });
+
+                // Run the program with the layer
+                await Effect.runPromise(program.pipe(Effect.provide(MainLayer)));
+                return Response.json({ result: result || "Command executed successfully (no output)" });
+            } catch (error) {
+                console.error("Command execution failed:", error);
+                return Response.json({
+                    result: `❌ Command failed: ${error instanceof Error ? error.message : String(error)}`
+                });
+            }
         }
     },
     "/bookmarklet": {

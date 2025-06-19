@@ -1,35 +1,39 @@
+import type { WhatsAppGatewayPayload } from "@/types/whatsapp-gateway";
 import { Effect, Layer } from "effect";
 import { CommandRouterService, CommandRouterServiceLive } from "./effect-command-router";
-import { CommandExecutor } from "./command-executor";
-import type { WhatsAppGatewayPayload } from "@/types/whatsapp-gateway";
-// You'll need to import your WhatsAppGatewayService layer here
+// You'll need to import your service layers here
 // import { WhatsAppGatewayServiceLive } from "@/path/to/whatsapp-gateway-service";
+// import { RateLimiterServiceLive } from "@/path/to/rate-limiter-service";
 
 /**
  * Example usage of the Effect-based Command Router
  * This shows how to setup and use the new command system
  */
 
-// Create the main layer that provides all dependencies
-// Note: You'll need to include WhatsAppGatewayServiceLive in your actual implementation
+
+// APPROACH 2: Single executor creation per message (recommended)
 const MainLayer = Layer.mergeAll(
     // WhatsAppGatewayServiceLive, // Uncomment and import this
+    // RateLimiterServiceLive, // Uncomment and import this
     CommandRouterServiceLive
 );
 
-// Example function to process a WhatsApp message
+
+
+// Example function to process a WhatsApp message (Approach 2 - Recommended)
 export const processWhatsAppMessage = (payload: WhatsAppGatewayPayload) =>
     Effect.gen(function* () {
         const router = yield* CommandRouterService;
-        
+
         // Load commands if not already loaded
         yield* router.loadCommands();
-        
+
         // Handle the incoming message
         yield* router.handle(payload);
     });
 
-// Example of how to run this in your main application
+
+// Recommended approach - cleaner dependency resolution
 export const runCommandRouter = (payload: WhatsAppGatewayPayload) =>
     Effect.provide(
         processWhatsAppMessage(payload),
@@ -59,7 +63,7 @@ export const processBatchMessages = (payloads: WhatsAppGatewayPayload[]) =>
     Effect.gen(function* () {
         const router = yield* CommandRouterService;
         yield* router.loadCommands();
-        
+
         // Process all messages concurrently
         yield* Effect.all(
             payloads.map(payload => router.handle(payload)),
