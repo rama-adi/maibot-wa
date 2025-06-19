@@ -18,7 +18,6 @@ async function main() {
     try {
         const test = Effect.gen(function* () {
             const whatsapp = yield* WhatsAppGatewayService;
-            return yield * whatsapp.handleWebhook("", new Headers());
         });
 
         await Effect.runPromise(test.pipe(Effect.provide(MainDependencies)));
