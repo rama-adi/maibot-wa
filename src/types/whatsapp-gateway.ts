@@ -38,4 +38,4 @@ export class WhatsAppGatewayService extends Context.Tag("WhatsappGatewayService"
             message: string
         }) => Effect.Effect<string, Error>
     }
->() { };
+>() { }

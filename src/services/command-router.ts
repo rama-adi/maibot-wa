@@ -12,7 +12,7 @@ import { admins } from "@/database/schemas/config-schema";
 export class CommandRouterService extends Context.Tag("CommandRouterService")<
     CommandRouterService,
     {
-        loadCommands: () => Effect.Effect<void, Error>;
+        loadCommands: () => Effect.Effect<Command[], Error>;
         handle: (payload: WhatsAppGatewayPayload) => Effect.Effect<void, Error, WhatsAppGatewayService | RateLimiterService>;
     }
 >() { }
@@ -42,12 +42,12 @@ const commonLoadCommand = (commands: Map<string, Command>) => Effect.gen(functio
 
     console.log(`✅ ${loadedCommands.length} Effect Commands loaded!`);
     console.table(loadedCommands);
+    return commands.values().toArray();
 });
 
 export const NullCommandRouterService = Layer.effect(CommandRouterService)(
     Effect.gen(function* () {
         const commands = new Map<string, Command>();
-
         const loadCommands = () => commonLoadCommand(commands);
 
         const handle = (_: WhatsAppGatewayPayload) => Effect.gen(function* () {

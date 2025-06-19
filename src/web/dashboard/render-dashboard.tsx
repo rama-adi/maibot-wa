@@ -6,6 +6,7 @@ import { listAllowedGroup } from "@/database/queries/allowed-group";
 import { RateLimiterService, DatabaseRateLimiterService } from "@/services/rate-limiter";
 import { Effect, pipe } from "effect";
 import { CommandRouterService, NullCommandRouterService } from "@/services/command-router.ts";
+import type {Command} from "@/types/command.ts";
 
 interface DashboardData {
     rateLimiterStats: readonly {
@@ -15,12 +16,7 @@ interface DashboardData {
         readonly resetTime: Date;
     }[];
     allowedGroups: string[];
-    availableCommands: Array<{
-        name: string;
-        description: string;
-        enabled: boolean;
-        commandAvailableOn?: string;
-    }>;
+    availableCommands: Array<Command>;
     currentTime: string;
     systemStats: {
         uptime: number;
@@ -43,13 +39,7 @@ export default async function renderDashboard(req: Bun.BunRequest) {
         const rateLimiterStats = yield* rateLimiter.getStats();
         const allowedGroups = yield* Effect.promise(async () => listAllowedGroup());
 
-        // Placeholder for available commands - this would need to be implemented
-        const availableCommands: Array<{
-            name: string;
-            description: string;
-            enabled: boolean;
-            commandAvailableOn?: string;
-        }> = [];
+      const availableCommands = yield* router.loadCommands();
 
         const currentTime = new Date().toISOString();
         const systemStats = {

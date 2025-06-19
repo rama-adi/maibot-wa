@@ -1,23 +1,23 @@
-import { cleanupController, setupLoggerOnce } from "@/services/logger";
-import type { BunRequest } from "bun";
+import {cleanupController, setupLoggerOnce} from "@/services/logger";
+import type {BunRequest} from "bun";
 import renderDashboard from "@/web/dashboard/render-dashboard";
-import { handleBookmarkletIngestRequest, handleIngestRequest } from "./bookmarklet/bookmarklet";
+import {handleBookmarkletIngestRequest, handleIngestRequest} from "./bookmarklet/bookmarklet";
 import renderCommandPage from "./dashboard/command-page";
 import renderUsersPage from "./dashboard/list-users";
-import { Effect, Layer } from "effect";
-import { CommandRouterService, CommandRouterServiceLive } from "@/services/command-router.ts";
-import { WhatsAppGatewayService } from "@/types/whatsapp-gateway";
-import { DatabaseRateLimiterService, NullRateLimiterService } from "@/services/rate-limiter";
-import { WahaWhatsappService } from "@/services/waha.ts";
+import {Effect, Layer} from "effect";
+import {CommandRouterService, CommandRouterServiceLive} from "@/services/command-router.ts";
+import {WhatsAppGatewayService} from "@/types/whatsapp-gateway";
+import {DatabaseRateLimiterService, NullRateLimiterService} from "@/services/rate-limiter";
+import {WahaWhatsappService} from "@/services/waha.ts";
 
 export const webHandler = {
-    "/": async (req: BunRequest) => {
+    "/": async (_: BunRequest) => {
         return new Response("Bot running!");
     },
     "/webhook": {
         async POST(req: BunRequest) {
             const MainLayer = Layer.mergeAll(
-                WahaWhatsappService,
+                WahaWatsappService,
                 DatabaseRateLimiterService,
                 CommandRouterServiceLive
             );
@@ -33,9 +33,7 @@ export const webHandler = {
                         try: () => req.text(),
                         catch: (err) => new Error(`Fail to decode body: ${err}`),
                     });
-                    const response = yield* whatsapp.handleWebhook(bodyText, req.headers);
-
-                    return response;
+                    return yield * whatsapp.handleWebhook(bodyText, req.headers);
                 });
 
                 await Effect.runPromise(program.pipe(Effect.provide(MainLayer)));
@@ -48,7 +46,7 @@ export const webHandler = {
             }
         },
 
-        async GET(req: BunRequest) {
+        async GET(_: BunRequest) {
             return new Response("Bot running!");
         }
     },
@@ -223,7 +221,7 @@ export const webHandler = {
         }
     },
     "/bookmarklet": {
-        async GET(req: BunRequest) {
+        async GET(_: BunRequest) {
             return new Response("amogus");
         },
         async POST(req: BunRequest) {
