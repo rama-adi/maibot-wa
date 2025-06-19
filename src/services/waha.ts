@@ -1,5 +1,5 @@
-import {type WhatsAppGatewayPayload, WhatsAppGatewayService} from "@/types/whatsapp-gateway";
-import {Data, Effect, Layer} from "effect";
+import { type WhatsAppGatewayPayload, WhatsAppGatewayService } from "@/types/whatsapp-gateway";
+import { Data, Effect, Layer } from "effect";
 import z, { ZodError } from "zod/v4";
 
 const WahaMessageTypeWehbookSchema = z.object({
@@ -148,8 +148,8 @@ export const WahaWhatsappService = Layer.effect(WhatsAppGatewayService)(
                                     "chatId": webhookMessage.payload.from
                                 }),
                                 headers: {
-                                    "Authorization": `${parsedConfig.apiKey}`,
-                                    "Content-Type": "application/json"
+                                    'Content-type': 'application/json',
+                                    'X-Api-Key': parsedConfig.apiKey,
                                 }
                             }),
                         catch: (error) => new WahaApiError({
@@ -234,7 +234,7 @@ export const WahaWhatsappService = Layer.effect(WhatsAppGatewayService)(
                     }));
                 }
 
-                return yield * Effect.tryPromise({
+                return yield* Effect.tryPromise({
                     try: () => response.text(),
                     catch: (error) => new WahaApiError({
                         message: `Failed to read response body: ${error}`,
@@ -277,7 +277,7 @@ export const WahaWhatsappService = Layer.effect(WhatsAppGatewayService)(
                         }));
                     }
 
-                    return yield * Effect.tryPromise({
+                    return yield* Effect.tryPromise({
                         try: () => response.text(),
                         catch: (error) => new WahaApiError({
                             message: `Failed to read response body: ${error}`,
