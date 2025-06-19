@@ -4,16 +4,11 @@ import z, { ZodError } from "zod/v4";
 
 const WahaMessageTypeWehbookSchema = z.object({
     id: z.string(),
-    me: z.object({
-        id: z.string().endsWith("@c.us"),
-        pushName: z.string(),
-        jid: z.string().endsWith("@s.whatsapp.net")
-    }),
     payload: z.object({
         id: z.string(),
         body: z.string(),
         participant: z.string().nullable(),
-        from: z.string().endsWith("@c.us"),
+        from: z.string(),
         _data: z.object({
             Info: z.object({
                 PushName: z.string()
@@ -126,7 +121,7 @@ export const WahaWhatsappService = Layer.effect(WhatsAppGatewayService)(
                     });
 
                     // Not message = don't care
-                    if (rawPayload?.event !== "message" && !headers.get("x-webhook-hmac")) {
+                    if (rawPayload?.event !== "message") {
                         return yield* Effect.void;
                     }
 
