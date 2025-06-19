@@ -17,7 +17,7 @@ export const webHandler = {
     "/webhook": {
         async POST(req: BunRequest) {
             const MainLayer = Layer.mergeAll(
-                WahaWatsappService,
+                WahaWhatsappService,
                 DatabaseRateLimiterService,
                 CommandRouterServiceLive
             );

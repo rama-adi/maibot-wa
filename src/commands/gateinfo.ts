@@ -1,6 +1,6 @@
-import { CommandExecutor } from "@/services/command-executor";
-import type { Command } from "@/types/command";
-import { Effect, Array, Option, pipe } from "effect";
+import {CommandExecutor} from "@/services/command-executor";
+import type {Command} from "@/types/command";
+import {Array, Effect, Option, pipe} from "effect";
 
 interface GateCondition {
     life: number;
@@ -42,14 +42,12 @@ const getCurrentCondition = (startDate: Date): Effect.Effect<GateCondition> =>
         const daysSinceRelease = Math.floor((nowInJapan.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
 
         // Find the appropriate condition based on days since release
-        const condition = pipe(
+        return pipe(
             CONDITION_PROGRESSION,
             Array.reverse,
             Array.findFirst(c => daysSinceRelease >= c.daysFromRelease),
             Option.getOrElse(() => CONDITION_PROGRESSION[0])
         );
-
-        return condition;
     });
 
 const formatDate = (date: Date): Effect.Effect<string> =>

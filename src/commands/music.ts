@@ -51,7 +51,7 @@ const minfo: Command = {
                 remaster: '⬜Re'
             };
 
-            const formatted = difficulties
+            return difficulties
                 .map(diff => {
                     const sheet = typeSheets.find(s => s.difficulty === diff);
                     if (!sheet) return null;
@@ -62,8 +62,6 @@ const minfo: Command = {
                 })
                 .filter(Boolean)
                 .join(' / ');
-
-            return formatted;
         };
 
         // Helper function to check region availability - pure function

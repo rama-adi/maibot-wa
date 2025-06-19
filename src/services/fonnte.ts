@@ -1,7 +1,11 @@
-import { WhatsappGatewayCapabilityInvalid, WhatsAppGatewayService, type WhatsAppGatewayPayload } from "@/types/whatsapp-gateway";
-import { sendToLogger } from "./logger";
-import { Effect, Layer, Data } from "effect";
-import { z } from "zod";
+import {
+    WhatsappGatewayCapabilityInvalid,
+    type WhatsAppGatewayPayload,
+    WhatsAppGatewayService
+} from "@/types/whatsapp-gateway";
+import {sendToLogger} from "./logger";
+import {Data, Effect, Layer} from "effect";
+import {z} from "zod";
 
 const FonnteWebhookPayloadSchema = z.object({
     // Required fields - only what we actually use
@@ -157,14 +161,12 @@ export const FonnteWhatsappService = Layer.effect(WhatsAppGatewayService)(
                         }));
                     }
 
-                    const responseBody = yield* Effect.tryPromise({
+                    return yield * Effect.tryPromise({
                         try: () => response.text(),
                         catch: (error) => new FonnteApiError({
                             message: `Failed to read response body: ${error}`,
                         })
                     });
-
-                    return responseBody;
                 }).pipe(
                     Effect.mapError((error) => new Error(`Send message error: ${error}`))
                 )

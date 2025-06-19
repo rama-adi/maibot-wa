@@ -1,5 +1,5 @@
-import { WhatsAppGatewayService, type WhatsAppGatewayPayload } from "@/types/whatsapp-gateway";
-import { Effect, Layer, Data } from "effect";
+import {type WhatsAppGatewayPayload, WhatsAppGatewayService} from "@/types/whatsapp-gateway";
+import {Data, Effect, Layer} from "effect";
 import z from "zod";
 
 const WahaMessageTypeWehbookSchema = z.object({
@@ -232,14 +232,12 @@ export const WahaWhatsappService = Layer.effect(WhatsAppGatewayService)(
                     }));
                 }
 
-                const responseBody = yield* Effect.tryPromise({
+                return yield * Effect.tryPromise({
                     try: () => response.text(),
                     catch: (error) => new WahaApiError({
                         message: `Failed to read response body: ${error}`,
                     })
                 });
-
-                return responseBody;
             }).pipe(
                 Effect.mapError((error) => new Error(`Send reply error: ${error}`))
             ),
@@ -277,14 +275,12 @@ export const WahaWhatsappService = Layer.effect(WhatsAppGatewayService)(
                         }));
                     }
 
-                    const responseBody = yield* Effect.tryPromise({
+                    return yield * Effect.tryPromise({
                         try: () => response.text(),
                         catch: (error) => new WahaApiError({
                             message: `Failed to read response body: ${error}`,
                         })
                     });
-
-                    return responseBody;
                 }).pipe(
                     Effect.mapError((error) => new Error(`Send message error: ${error}`))
                 )
