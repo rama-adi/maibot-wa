@@ -20,8 +20,10 @@
     "@types/react-dom": "^19.1.5",
     "drizzle-orm": "^0.44.2",
     "effect": "^3.16.6",
+    "fetch-cookie": "^3.1.0",
     "nanoid": "^5.1.5",
     "react-dom": "^19.1.0",
+    "tough-cookie": "^5.1.2",
     "typesense": "^2.0.3",
     "zod": "^3.25.56"
   }

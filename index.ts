@@ -1,13 +1,15 @@
-import {serve} from "bun";
-import {webHandler} from "@/web/webHandler";
-import {findUserByPhone} from "@/database/queries/user-query.ts";
-import {Effect, Layer} from "effect";
-import {WahaWhatsappService} from "@/services/waha";
-import {DatabaseRateLimiterService} from "@/services/rate-limiter";
-import {CommandRouterServiceLive} from "@/services/command-router";
-import {WhatsAppGatewayService} from "@/types/whatsapp-gateway";
+import { serve } from "bun";
+import { webHandler } from "@/web/webHandler";
+import { findUserByPhone } from "@/database/queries/user-query.ts";
+import { Effect, Layer } from "effect";
+import { WahaWhatsappService } from "@/services/waha";
+import { DatabaseRateLimiterService } from "@/services/rate-limiter";
+import { CommandRouterService, CommandRouterServiceLive } from "@/services/command-router";
+import { WhatsAppGatewayService } from "@/types/whatsapp-gateway";
+import { EnvLive } from "@/services/env";
 
 export const MainDependencies = Layer.mergeAll(
+    EnvLive,
     WahaWhatsappService,
     DatabaseRateLimiterService,
     CommandRouterServiceLive
@@ -15,18 +17,41 @@ export const MainDependencies = Layer.mergeAll(
 
 async function main() {
     // Test WA dependency configuration
-    try {
-        const test = Effect.gen(function* () {
-            const whatsapp = yield* WhatsAppGatewayService;
-        });
+    const test = Effect.gen(function* () {
+        const commands = yield* CommandRouterService;
+        const whatsapp = yield* WhatsAppGatewayService;
+        const commandList = yield* commands.loadCommands();
 
-        await Effect.runPromise(test.pipe(Effect.provide(MainDependencies)));
-        console.log("✅ WAHA service configuration validated successfully");
-    } catch (error) {
-        console.error("❌ WAHA service configuration failed:", error);
-        console.error("Please check your environment variables and try again.");
-        process.exit(1);
-    }
+        console.log("✅ App bootstrap succeeded!");
+        console.log("- WhatsApp Provider:", whatsapp.name)
+        console.log("- Provider capabilities:", whatsapp.capabilities.join(", "));
+        console.log("\n📋 Available Commands:");
+        
+        console.table(
+            commandList.map(cmd => ({
+                Name: cmd.name,
+                Available: cmd.commandAvailableOn,
+                Enabled: cmd.enabled ? "✅" : "❌",
+                "Admin Only": cmd.adminOnly ? "🔒" : "👥"
+            }))
+        );
+
+        yield* Effect.succeed(void 0);
+    });
+
+    await Effect.runPromise(
+        test.pipe(
+            Effect.provide(MainDependencies),
+            Effect.catchAll((error) => 
+                Effect.gen(function* () {
+                    const message = error.message || String(error);
+                    console.error("Bootstrap app failed:");
+                    console.error(message);
+                    yield* Effect.sync(() => process.exit(1));
+                })
+            )
+        )
+    );
 
     const fakeUser = await findUserByPhone({
         sender: "INTERNAL_ADMIN",

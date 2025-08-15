@@ -23,6 +23,7 @@ export class WhatsappGatewayCapabilityInvalid extends Data.TaggedError("Whatsapp
 export class WhatsAppGatewayService extends Context.Tag("WhatsappGatewayService")<
     WhatsAppGatewayService,
     {
+        readonly name: string,
         readonly capabilities: WhatsAppGatewayCapability[],
         readonly handleWebhook: (
             data: string,

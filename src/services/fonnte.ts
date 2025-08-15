@@ -64,6 +64,7 @@ export const FonnteWhatsappService = Layer.effect(WhatsAppGatewayService)(
         });
 
         return {
+            name: "Fonnte",
             capabilities: ["sendMessage"],
             handleWebhook: (data: string) =>
                 Effect.gen(function* () {

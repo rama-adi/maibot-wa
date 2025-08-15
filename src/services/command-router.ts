@@ -39,9 +39,6 @@ const commonLoadCommand = (commands: Map<string, Command>) => Effect.gen(functio
             yield* Effect.fail(new Error(`Failed to load command from ${file}: ${error}`));
         }
     }
-
-    console.log(`✅ ${loadedCommands.length} Effect Commands loaded!`);
-    console.table(loadedCommands);
     return commands.values().toArray();
 });
 
@@ -73,12 +70,12 @@ export const CommandRouterServiceLive = Layer.effect(CommandRouterService)(
                 const executor = yield* CommandExecutor;
 
                 // Get admin IDs
-                const adminRows = yield* Effect.promise(() =>
+                const adminIds = yield* Effect.promise(() =>
                     configDatabase
                         .select({ id: admins.id })
                         .from(admins)
-                );
-                const adminIds = adminRows.map(row => row.id);
+                ).pipe(Effect.map(rows => rows.map(user => user.id)))
+
 
                 // Parse command
                 const [cmdName = "", ...rest] = payload.message.trim().split(/\s+/);
