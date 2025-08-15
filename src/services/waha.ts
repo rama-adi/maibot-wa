@@ -1,18 +1,17 @@
-import { type WhatsAppGatewayPayload, WhatsAppGatewayService } from "@/types/whatsapp-gateway";
-import { Data, Effect, Layer } from "effect";
-import z, { ZodError } from "zod/v4";
-import { handleUrl } from "./utils";
+import { type WhatsAppGatewayPayload, WhatsAppGatewayService } from "@/contracts/whatsapp-gateway";
+import { handleUrl } from "@/utils/url";
+import { Config, Data, Effect, Layer, Schema, Redacted } from "effect";
 
-const WahaMessageTypeWehbookSchema = z.object({
-    id: z.string(),
-    payload: z.object({
-        id: z.string(),
-        body: z.string(),
-        participant: z.string().nullable(),
-        from: z.string(),
-        _data: z.object({
-            Info: z.object({
-                PushName: z.string()
+const WahaMessageTypeWehbookSchema = Schema.Struct({
+    id: Schema.String,
+    payload: Schema.Struct({
+        id: Schema.String,
+        body: Schema.String,
+        participant: Schema.Union(Schema.String, Schema.Null),
+        from: Schema.String,
+        _data: Schema.Struct({
+            Info: Schema.Struct({
+                PushName: Schema.String
             })
         })
     })
@@ -73,34 +72,51 @@ const verifyHmac = (
 });
 
 
+const wahaConfig = Config.all({
+    phoneNumber: Config.string("WAHA_PHONE_NUMBER").pipe(
+        Config.validate({
+            message: "Phone number must be at least 4 characters",
+            validation: (value) => value.length >= 4
+        })
+    ),
+    apiKey: Config.redacted(Config.string("WAHA_API_KEY").pipe(
+        Config.validate({
+            message: "API key cannot be empty",
+            validation: (value) => value.length >= 1
+        })
+    )),
+    hmacSecret: Config.redacted(Config.string("WAHA_HMAC_SECRET").pipe(
+        Config.validate({
+            message: "HMAC secret cannot be empty",
+            validation: (value) => value.length >= 1
+        })
+    )),
+    apiPath: Config.string("WAHA_API_PATH").pipe(
+        Config.validate({
+            message: "WAHA hosting URL path is required (with /api)",
+            validation: (value) => value.length >= 1
+        })
+    ),
+    session: Config.string("WAHA_SESSION").pipe(
+        Config.validate({
+            message: "Session identification name cannot be empty",
+            validation: (value) => value.length >= 1
+        })
+    )
+});
+
 export const WahaWhatsappService = Layer.effect(WhatsAppGatewayService)(
     Effect.gen(function* () {
-        const WahaConfigSchema = z.object({
-            WAHA_PHONE_NUMBER: z.string("WAHA phone number is required").min(4, "Phone number must be at least 4 characters"),
-            WAHA_API_KEY: z.string("WAHA API key is required").min(1, "API key cannot be empty"),
-            WAHA_HMAC_SECRET: z.string("WAHA HMAC secret is required").min(1, "HMAC secret cannot be empty"),
-            WAHA_API_PATH: z.url("WAHA API path must be a valid URL").min(1, "WAHA hosting URL path is required (with /api)"),
-            WAHA_SESSION: z.string("WAHA session name is required").min(1, "Session identification name cannot be empty")
-        });
-
-        const parsedConfig = yield* Effect.try({
-            try: () => WahaConfigSchema.parse(process.env),
-            catch: (error) => {
-                if (error instanceof ZodError) {
-                    const errors = error.issues.map(issue => `- ${issue.message} (Env name: ${issue.path})`).join('\n');
-                    return new WahaConfigError({
-                        message: "WAHA configuration validation failed:\n" + errors
-                    });
-                }
-                return new WahaConfigError({
-                    message: "WAHA configuration validation failed:\n" + String(error)
-                });
-            }
-        });
+        const config = yield* Effect.try({
+            try: () => wahaConfig,
+            catch: (error) => new WahaConfigError({
+                message: `Failed to load WAHA configuration: ${error}`
+            })
+        }).pipe(Effect.flatten);
 
         return {
             name: "WAHA",
-            capabilities: ["sendMessage", "sendContextualReply"],
+            capabilities: ["sendMessage", "sendContextualReply", "sendAttachment"],
             handleWebhook: (data, headers) =>
                 Effect.gen(function* () {
                     const rawPayload = yield* Effect.try({
@@ -118,11 +134,11 @@ export const WahaWhatsappService = Layer.effect(WhatsAppGatewayService)(
                     yield* verifyHmac(
                         data,
                         headers.get("x-webhook-hmac") || "",
-                        parsedConfig.WAHA_HMAC_SECRET
+                        Redacted.value(config.hmacSecret)
                     );
 
                     const webhookMessage = yield* Effect.try({
-                        try: () => WahaMessageTypeWehbookSchema.parse(rawPayload),
+                        try: () => Schema.decodeUnknownSync(WahaMessageTypeWehbookSchema)(rawPayload),
                         catch: (error) => new WahaWebhookError({
                             message: `Invalid webhook payload format: ${error}`
                         })
@@ -130,16 +146,16 @@ export const WahaWhatsappService = Layer.effect(WhatsAppGatewayService)(
 
                     yield* Effect.tryPromise({
                         try: () => fetch(
-                            handleUrl(parsedConfig.WAHA_API_PATH, "sendSeen"),
+                            handleUrl(config.apiPath, "sendSeen"),
                             {
                                 method: "POST",
                                 body: JSON.stringify({
-                                    "session": parsedConfig.WAHA_SESSION,
+                                    "session": config.session,
                                     "chatId": webhookMessage.payload.from
                                 }),
                                 headers: {
                                     'Content-type': 'application/json',
-                                    'X-Api-Key': parsedConfig.WAHA_API_KEY,
+                                    'X-Api-Key': Redacted.value(config.apiKey),
                                 }
                             }),
                         catch: (error) => new WahaApiError({
@@ -153,7 +169,7 @@ export const WahaWhatsappService = Layer.effect(WhatsAppGatewayService)(
                     if (webhookMessage.payload.participant) {
                         if (
                             !messageParts[0] ||
-                            !messageParts[0].toLowerCase().includes(`@${parsedConfig.WAHA_PHONE_NUMBER}`)
+                            !messageParts[0].toLowerCase().includes(`@${config.phoneNumber}`)
                         ) {
                             return yield* Effect.void;
                         }
@@ -161,7 +177,7 @@ export const WahaWhatsappService = Layer.effect(WhatsAppGatewayService)(
 
                     const from = webhookMessage.payload.from.replaceAll("@s.whatsapp.net", "@c.us");
                     const name = webhookMessage.payload._data.Info.PushName;
-                    const message = webhookMessage.payload.body.replace(`@${parsedConfig.WAHA_PHONE_NUMBER}`, "").trim();
+                    const message = webhookMessage.payload.body.replace(`@${config.phoneNumber}`, "").trim();
 
                     // // Add logging back as an Effect
                     // yield* Effect.sync(() =>
@@ -194,17 +210,17 @@ export const WahaWhatsappService = Layer.effect(WhatsAppGatewayService)(
 
                 const response = yield* Effect.tryPromise({
                     try: () => fetch(
-                        handleUrl(parsedConfig.WAHA_API_PATH, "sendText"), {
+                        handleUrl(config.apiPath, "sendText"), {
                         method: "POST",
                         body: JSON.stringify({
                             chatId: data.to,
-                            session: parsedConfig.WAHA_SESSION,
+                            session: config.session,
                             reply_to: data.messageId,
                             text: data.message
                         }),
                         headers: {
                             'Content-type': 'application/json',
-                            'X-Api-Key': parsedConfig.WAHA_API_KEY,
+                            'X-Api-Key': Redacted.value(config.apiKey),
                         }
                     }),
                     catch: (error) => new WahaApiError({
@@ -238,16 +254,16 @@ export const WahaWhatsappService = Layer.effect(WhatsAppGatewayService)(
                 Effect.gen(function* () {
                     const response = yield* Effect.tryPromise({
                         try: () => fetch(
-                            handleUrl(parsedConfig.WAHA_API_PATH, "sendText"), {
+                            handleUrl(config.apiPath, "sendText"), {
                             method: "POST",
                             body: JSON.stringify({
                                 chatId: data.to,
-                                session: parsedConfig.WAHA_SESSION,
+                                session: config.session,
                                 text: data.message
                             }),
                             headers: {
                                 'Content-type': 'application/json',
-                                'X-Api-Key': parsedConfig.WAHA_API_KEY,
+                                'X-Api-Key': Redacted.value(config.apiKey),
                             }
                         }),
                         catch: (error) => new WahaApiError({
