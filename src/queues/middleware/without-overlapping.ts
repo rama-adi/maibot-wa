@@ -1,7 +1,7 @@
 import { Job } from "bullmq";
 import { Effect } from "effect";
-import { LockService, LockAcquisitionError } from "@/services/lock";
-import { type QueueMiddleware, type MiddlewareResult, addQueueMetadata } from "./base";
+import { LockService, LockAcquisitionError } from "@/contracts/lock";
+import { type QueueMiddleware, type MiddlewareResult, addQueueMetadata } from "@/contracts/base-middleware";
 
 export class WithoutOverlapping implements QueueMiddleware {
   private _releaseAfter: number | false = false; // Default: discard overlapping jobs

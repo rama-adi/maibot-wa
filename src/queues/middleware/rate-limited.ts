@@ -1,7 +1,7 @@
 import { Job } from "bullmq";
 import { Effect } from "effect";
-import { LockService } from "@/services/lock";
-import { type QueueMiddleware, type MiddlewareResult, addQueueMetadata } from "./base";
+import { LockService } from "@/contracts/lock";
+import { type QueueMiddleware, type MiddlewareResult, addQueueMetadata } from "@/contracts/base-middleware";
 
 export class RateLimited implements QueueMiddleware {
   constructor(

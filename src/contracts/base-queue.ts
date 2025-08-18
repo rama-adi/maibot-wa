@@ -1,6 +1,6 @@
 import * as S from "effect/Schema";
 import { Effect } from "effect";
-import type { QueueMiddleware } from "./middleware/base";
+import type { QueueMiddleware } from "./base-middleware";
 
 // Helper type to get the inferred TypeScript type from a Schema
 export type SchemaType<TSchema extends S.Schema<any, any, never>> = S.Schema.Type<TSchema>;

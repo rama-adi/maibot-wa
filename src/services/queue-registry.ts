@@ -1,7 +1,7 @@
 import path from "path";
 import { fileURLToPath } from "url";
 import { readdirSync } from "fs";
-import { BaseQueue, type QueueConstructor } from "@/queues/base-queue.js";
+import { BaseQueue, type QueueConstructor } from "@/contracts/base-queue.js";
 
 // Dynamically import every *.queue.ts file in /queues and build a registry
 export async function loadQueues() {

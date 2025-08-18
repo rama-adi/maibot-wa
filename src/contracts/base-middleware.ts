@@ -1,6 +1,6 @@
 import { Job } from "bullmq";
 import { Effect } from "effect";
-import { LockService } from "@/services/lock";
+import { LockService } from "@/contracts/lock";
 
 /**
  * Defines the result of a middleware check.

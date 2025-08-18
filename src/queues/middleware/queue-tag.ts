@@ -1,6 +1,6 @@
 import { Job } from "bullmq";
 import { Effect } from "effect";
-import { type QueueMiddleware, type MiddlewareResult, addQueueMetadata } from "./base";
+import { type QueueMiddleware, type MiddlewareResult, addQueueMetadata } from "@/contracts/base-middleware";
 
 /**
  * Middleware that appends tags to the job data so that the dashboard can

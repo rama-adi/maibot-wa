@@ -9,6 +9,7 @@ const WhatsappGatewayCapabilities = [
 export type WhatsAppGatewayCapability = typeof WhatsappGatewayCapabilities[number];
 
 export type WhatsAppGatewayPayload = {
+    id: string;
     sender: string;
     messageId: string | null;
     message: string;

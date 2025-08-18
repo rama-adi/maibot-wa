@@ -1,11 +1,11 @@
-import { QueueTag } from "@/queues/base-queue";
+import { QueueTag } from "@/contracts/base-queue";
 import * as S from "effect/Schema";
 import { Effect } from "effect";
-import type { QueueMiddleware } from "./middleware/base";
-import { RateLimited } from "./middleware/rate-limited";
-import { WithoutOverlapping } from "./middleware/without-overlapping";
-import { QueueLabel } from "./middleware/queue-label";
-import { QueueTag as TagMiddleware } from "./middleware/queue-tag";
+import type { QueueMiddleware } from "@/contracts/base-middleware";
+import { RateLimited } from "@/queues/middleware/rate-limited";
+import { WithoutOverlapping } from "@/queues/middleware/without-overlapping";
+import { QueueLabel } from "@/queues/middleware/queue-label";
+import { QueueTag as TagMiddleware } from "@/queues/middleware/queue-tag";
 
 export const LogSchema = S.Struct({
     id: S.Number,

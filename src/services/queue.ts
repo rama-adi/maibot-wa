@@ -1,5 +1,5 @@
 import { Queue, type JobsOptions } from "bullmq";
-import { BaseQueue, type QueueConstructor } from "@/queues/base-queue.js";
+import { BaseQueue, type QueueConstructor } from "@/contracts/base-queue.js";
 import { Context, Effect, Schema } from "effect";
 import type { QueueJobData, QueueService } from "@/contracts/queue";
 

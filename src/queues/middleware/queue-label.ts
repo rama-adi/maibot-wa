@@ -1,6 +1,6 @@
 import { Job } from "bullmq";
 import { Effect } from "effect";
-import { type QueueMiddleware, type MiddlewareResult, addQueueMetadata } from "./base";
+import { type QueueMiddleware, type MiddlewareResult, addQueueMetadata } from "@/contracts/base-middleware";
 
 /**
  * Middleware that attaches a label to the job data. This label can later be

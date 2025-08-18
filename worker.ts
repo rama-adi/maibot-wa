@@ -1,13 +1,14 @@
 import { Worker, Job, DelayedError, Queue } from "bullmq";
 import { loadQueues } from "@/services/queue-registry";
-import { BaseQueue, type QueueConstructor } from "@/queues/base-queue";
+import { BaseQueue, type QueueConstructor } from "@/contracts/base-queue";
 import { Effect, Data, pipe, ManagedRuntime, Logger } from "effect";
-import { addQueueMetadata, hasMiddleware, type QueueMiddleware } from "@/queues/middleware/base";
+import { addQueueMetadata, hasMiddleware, type QueueMiddleware } from "@/contracts/base-middleware";
 import { WithoutOverlapping } from "@/queues/middleware/without-overlapping";
-import { LockService } from "@/services/lock";
 // Note: direct Redis usage is not required here; the LockService is provided via Effect Layer
 import { LiveRuntimeContainer } from "./container";
 import type { Layer } from "effect";
+import type { LockService } from "@/contracts/lock";
+import { LockService as LSGeneric } from "@/contracts/lock";
 
 // Extract the type from LiveRuntimeContainer
 type LiveRuntimeContainerType = Layer.Layer.Success<typeof LiveRuntimeContainer>;
@@ -103,7 +104,7 @@ async function releaseWithoutOverlappingLockFromMetadata(job: Job, runtime: Mana
       const withoutOverlapping = new WithoutOverlapping(job.name);
       await runtime.runPromise(withoutOverlapping.release(job));
       console.log(`[Worker] Released job lock for ${job.name}#${job.id} due to failure (from metadata).`);
-      addQueueMetadata(job, "log", [`Released job lock for ${job.name}#${job.id} due to failure (from metadata).`] );
+      addQueueMetadata(job, "log", [`Released job lock for ${job.name}#${job.id} due to failure (from metadata).`]);
     } catch (error) {
       console.error(`[Worker] Failed to release lock for ${job.name}#${job.id}:`, error);
       addQueueMetadata(job, "log", [`Failed to release lock for ${job.name}#${job.id}: ${String(error)}`]);
@@ -145,7 +146,7 @@ function makeJobProcessor(registry: Record<string, QueueConstructor<any>>) {
         // If it's an Effect, run it directly with proper error handling and provide LockService context
         yield* result.pipe(
           Effect.mapError((cause) => new JobExecutionError({ jobName: job.name, cause })),
-          Effect.catchAll((error) => 
+          Effect.catchAll((error) =>
             Effect.gen(function* () {
               yield* releaseWithoutOverlappingLock(job, middleware);
               return yield* Effect.fail(error);
@@ -158,7 +159,7 @@ function makeJobProcessor(registry: Record<string, QueueConstructor<any>>) {
           try: () => result,
           catch: (cause) => new JobExecutionError({ jobName: job.name, cause }),
         }).pipe(
-          Effect.catchAll((error) => 
+          Effect.catchAll((error) =>
             Effect.gen(function* () {
               yield* releaseWithoutOverlappingLock(job, middleware);
               return yield* Effect.fail(error);
@@ -171,7 +172,7 @@ function makeJobProcessor(registry: Record<string, QueueConstructor<any>>) {
           try: () => result,
           catch: (cause) => new JobExecutionError({ jobName: job.name, cause }),
         }).pipe(
-          Effect.catchAll((error) => 
+          Effect.catchAll((error) =>
             Effect.gen(function* () {
               yield* releaseWithoutOverlappingLock(job, middleware);
               return yield* Effect.fail(error);
@@ -228,7 +229,7 @@ const main = async () => {
         Effect.catchAll((error) => {
           if (error instanceof JobReleased) {
             console.warn(`[Worker] Releasing job ${error.jobName} for ${error.delay}s`);
-            addQueueMetadata(job, "log", [`Releasing job ${error.jobName} for ${error.delay}s`] );
+            addQueueMetadata(job, "log", [`Releasing job ${error.jobName} for ${error.delay}s`]);
             return Effect.fail(error);
           }
           if (error instanceof JobDiscarded) {
@@ -238,14 +239,14 @@ const main = async () => {
               console.log(`[Worker] Skipping job ${error.jobName}: ${error.cause}`);
               addQueueMetadata(job, "log", [`Skipping job ${error.jobName}: ${error.cause}`]);
             }
-            return Effect.flatMap(LockService, () => Effect.void);
+            return Effect.flatMap(LSGeneric, () => Effect.void);
           }
           // Mark job as failed for all other errors
           addQueueMetadata(job, "progress", "failed");
           console.error("Job failed", error);
-           addQueueMetadata(job, "log", [
-             `Job failed: ${error instanceof Error ? error.message : String(error)}`
-           ]);
+          addQueueMetadata(job, "log", [
+            `Job failed: ${error instanceof Error ? error.message : String(error)}`
+          ]);
           return Effect.fail(error);
         })
       );
@@ -257,10 +258,10 @@ const main = async () => {
           await job.moveToDelayed(Date.now() + error.delay * 1000, token);
           throw new DelayedError();
         }
-        
+
         // Release WithoutOverlapping lock if present when job fails
         await releaseWithoutOverlappingLockFromMetadata(job, Runtime);
-        
+
         // Mark job as failed if it wasn't already marked by Effect.catchAll
         // Check if progress metadata is already set to avoid overwriting skipped status
         const currentProgress = job.data.__metadata?.progress;
@@ -291,11 +292,11 @@ const main = async () => {
     if (job) {
       addQueueMetadata(job, "log", [`Job ${job.name}#${job.id} failed: ${err.message}`]);
     }
-    
+
     if (job) {
       // Release WithoutOverlapping lock if present when job fails
       await releaseWithoutOverlappingLockFromMetadata(job, Runtime);
-      
+
       // Ensure failed jobs are marked with failed progress
       addQueueMetadata(job, "progress", "failed");
     }

@@ -1,4 +1,4 @@
-import type { BaseQueue } from "@/queues/base-queue";
+import type { BaseQueue } from "@/contracts/base-queue";
 import { Context, Effect, Schema } from "effect";
 
 export const QueueJobData = Schema.Struct({
