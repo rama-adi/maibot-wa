@@ -42,7 +42,7 @@ export default defineCommand(dependencies => ({
         blocks
           .map((b) => (b ?? "").trim())
           .filter(Boolean)
-          .join("\n\n");
+          .join("\n");
 
       const difficultyOrder = [
         "basic",
@@ -175,7 +175,7 @@ export default defineCommand(dependencies => ({
                 `;
               })
               .filter(Boolean)
-              .join("\n\n")
+              .join("\n")
           : null;
 
       // ---------- Utage block ----------
@@ -242,6 +242,6 @@ export default defineCommand(dependencies => ({
         otherResultsSection,
       ]);
 
-      yield* dependencies.executor.reply(replyText.replace(/\n{3,}/g, "\n\n"));
+      yield* dependencies.executor.reply(replyText);
     }),
 }));
