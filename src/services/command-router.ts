@@ -1,132 +1,86 @@
+// services/command-router.ts
 import { readdirSync } from "fs";
 import { resolve } from "path";
-import { Context, Effect, Layer, Array } from "effect";
-import type { Command, CommandContext } from "@/types/command";
-import type { WhatsAppGatewayPayload } from "@/types/whatsapp-gateway";
-import { WhatsAppGatewayService } from "@/types/whatsapp-gateway";
-import { RateLimiterService } from "@/services/rate-limiter";
-import { CommandExecutor, createCommandExecutor } from "./command-executor";
-import { configDatabase } from "@/database/drizzle";
-import { admins } from "@/database/schemas/config-schema";
+import { Context, Effect, Layer, Array as Arr } from "effect";
+import { type BotCommand, type CommandBuilder, type CommandContext, type CommandDeps } from "@/contracts/bot-command";
+import type { WhatsAppGatewayPayload } from "@/contracts/whatsapp-gateway";
+import { CommandExecutor } from "@/contracts/command-executor";
+import { CommandRouterService } from "@/contracts/command-router";
+import { MaiSongData } from "@/contracts/maisong-data";
+import { MaiAi } from "@/contracts/mai-ai";
 
-export class CommandRouterService extends Context.Tag("CommandRouterService")<
-    CommandRouterService,
-    {
-        loadCommands: () => Effect.Effect<Command[], Error>;
-        handle: (payload: WhatsAppGatewayPayload) => Effect.Effect<void, Error, WhatsAppGatewayService | RateLimiterService>;
-    }
->() { }
-
-const commonLoadCommand = (commands: Map<string, Command>) => Effect.gen(function* () {
-    const dir = resolve(__dirname, "../commands");
-    const loadedCommands: { name: string, file: string }[] = [];
-
-    const files = readdirSync(dir).filter(file => file.match(/\.[tj]s$/));
-
-    for (const file of files) {
-        try {
-            const mod = yield* Effect.promise(() => import(resolve(dir, file)));
-            const cmd: Command = mod.default;
-
-            if (cmd?.name) {
-                commands.set(cmd.name, cmd);
-                loadedCommands.push({
-                    name: cmd.name,
-                    file: file
-                });
-            }
-        } catch (error) {
-            yield* Effect.fail(new Error(`Failed to load command from ${file}: ${error}`));
-        }
-    }
-    return commands.values().toArray();
-});
-
-export const NullCommandRouterService = Layer.effect(CommandRouterService)(
+const buildAll = (dir: string, deps: CommandDeps) =>
     Effect.gen(function* () {
-        const commands = new Map<string, Command>();
-        const loadCommands = () => commonLoadCommand(commands);
-
-        const handle = (_: WhatsAppGatewayPayload) => Effect.gen(function* () {
-            return yield* Effect.void;
-        })
-
-        return {
-            loadCommands,
-            handle,
-        };
-    })
-);
+        const files = readdirSync(dir).filter((f) => f.match(/\.[tj]s$/));
+        const map = new Map<string, BotCommand>();
+        for (const f of files) {
+            const mod = (yield* Effect.promise(() => import(resolve(dir, f)))).default as CommandBuilder;
+            const cmd = mod(deps); // deps captured now
+            if (cmd?.name) map.set(cmd.name.toLowerCase(), cmd);
+        }
+        return map;
+    });
 
 export const CommandRouterServiceLive = Layer.effect(CommandRouterService)(
     Effect.gen(function* () {
-        const commands = new Map<string, Command>();
+        const commands = new Map<string, BotCommand>();
+        const dir = resolve(__dirname, "../bot-commands");
 
-        const loadCommands = () => commonLoadCommand(commands);
+        // Capture deps at layer creation so service APIs are env-free
+        const executor = yield* CommandExecutor;
+        const maiSongData = yield* MaiSongData;
+        const maiAi = yield* MaiAi;
+        const capturedDeps: CommandDeps = { executor, maiSongData, maiAi };
 
-        const handle = (payload: WhatsAppGatewayPayload) =>
-            // Provide the executor context once for the entire handle operation
+        const loadCommandsWithDeps = (deps: CommandDeps) => Effect.map(buildAll(dir, deps), (m) => {
+            commands.clear();
+            for (const [k, v] of m) commands.set(k, v);
+            return Arr.fromIterable(commands.values());
+        });
+
+        const loadCommands = () => loadCommandsWithDeps(capturedDeps);
+
+        const run = (payload: WhatsAppGatewayPayload, deps: CommandDeps) =>
             Effect.gen(function* () {
-                const executor = yield* CommandExecutor;
-
-                // Get admin IDs
-                const adminIds = yield* Effect.promise(() =>
-                    configDatabase
-                        .select({ id: admins.id })
-                        .from(admins)
-                ).pipe(Effect.map(rows => rows.map(user => user.id)))
-
-
-                // Parse command
                 const [cmdName = "", ...rest] = payload.message.trim().split(/\s+/);
                 const rawArgs = rest.join(" ");
-
-                console.log(`🔍 Processing Effect command: "${cmdName}", args: "${rawArgs}"`);
-
                 const cmd = commands.get(cmdName.toLowerCase());
+
+                const reply = (m: string) => deps.executor.reply(m);
+
                 if (!cmd) {
-                    yield* executor.reply(`Unknown command "${cmdName}". Try "help" to list available commands.`);
+                    yield* reply(`Unknown command "${cmdName}". Try "help" to list available commands.`);
                     return;
                 }
 
-                const isAdmin = adminIds.includes(payload.number) || payload.number === "INTERNAL_ADMIN";
-
-                // Admin check
-                if (cmd.adminOnly && !isAdmin) {
-                    yield* executor.reply(`Command "${cmdName}" is only available for administrators.`);
-                    return;
-                }
-
-                // Context availability check
+                const isAdmin = false;
                 const isGroup = payload.group;
                 if (cmd.commandAvailableOn === "group" && !isGroup) {
-                    yield* executor.reply(`Command "${cmdName}" is only available in groups.`);
+                    yield* reply(`Command "${cmdName}" hanya untuk grup.`);
                     return;
                 }
                 if (cmd.commandAvailableOn === "private" && isGroup) {
-                    yield* executor.reply(`Command "${cmdName}" is only available in private messages.`);
+                    yield* reply(`Command "${cmdName}" hanya untuk chat pribadi.`);
                     return;
                 }
 
-                // Build command context
                 const ctx: CommandContext = {
                     rawParams: rawArgs,
                     isAdmin,
-                    availableCommands: Array.fromIterable(commands.values()).map(({ execute, ...cmd }) => cmd),
+                    availableCommands: Arr
+                        .fromIterable(commands.values())
+                        .filter((c) => !c.adminOnly)
+                        .map(({ execute, ...c }) => c),
                     rawPayload: payload,
                 };
 
-                // Execute command
-                console.log(`✅ Executing Effect command: "${cmd.name}"`);
-                yield* cmd.execute(ctx);
-            }).pipe(
-                // Provide the executor context once for the entire operation
-                Effect.provide(createCommandExecutor(payload))
-            );
+                yield* cmd.execute(ctx); // already env-free
+            });
 
-        return {
-            loadCommands,
-            handle,
-        };
+        const handleWithDeps = (payload: WhatsAppGatewayPayload, deps: CommandDeps) => run(payload, deps);
+
+        const handle = (payload: WhatsAppGatewayPayload) => run(payload, capturedDeps);
+
+        return { loadCommands, loadCommandsWithDeps, handle, handleWithDeps };
     })
-); 
+);

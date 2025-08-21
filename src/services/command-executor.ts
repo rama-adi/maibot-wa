@@ -1,34 +1,13 @@
-import { WhatsAppGatewayService } from "@/types/whatsapp-gateway";
-import type { WhatsAppGatewayPayload } from "@/types/whatsapp-gateway";
-import { Context, Effect, Layer } from "effect";
-import { RateLimiterService } from "@/services/rate-limiter";
-import { findUserByPhone } from "@/database/queries/user-query";
+import { CommandExecutor } from "@/contracts/command-executor";
+import { WhatsAppGatewayService, type WhatsAppGatewayPayload } from "@/contracts/whatsapp-gateway";
+import { Effect, Layer } from "effect";
 
-export class CommandExecutor extends Context.Tag("CommandExecutor")<
-    CommandExecutor,
-    {
-        reply: (message: string) => Effect.Effect<void, Error>;
-    }
->() { }
-
-// Factory function to create a payload-specific CommandExecutor
 export const createCommandExecutor = (payload: WhatsAppGatewayPayload) => Layer.effect(CommandExecutor)(
     Effect.gen(function* () {
         const whatsapp = yield* WhatsAppGatewayService;
-        const rateLimiter = yield* RateLimiterService;
 
         return {
             reply: (message: string) => Effect.gen(function* () {
-                // Check rate limit before sending
-                const canSend = yield* rateLimiter.canSend(payload.sender);
-
-                if (!canSend) {
-                    // Return without sending if rate limited
-                    return Effect.void;
-                }
-
-                const user = yield* Effect.promise(() => findUserByPhone(payload));
-
                 if (
                     whatsapp.capabilities.includes('sendContextualReply')
                     && payload.messageId
@@ -36,17 +15,49 @@ export const createCommandExecutor = (payload: WhatsAppGatewayPayload) => Layer.
                     yield* whatsapp.sendReply({
                         messageId: payload.messageId,
                         to: payload.sender,
-                        message: payload.group ? `${user.name}, ${message}` : message
+                        message: message
                     });
                 } else {
                     yield* whatsapp.sendMessage({
                         to: payload.sender,
-                        message: payload.group ? `${user.name}, ${message}` : message
+                        message: payload.group ? `@${payload.name}, ${message}` : message
                     });
                 }
+            }),
+            replyImage: (imageURL: string, options?: { 
+                caption?: string; 
+                mime?: string; 
+                filename?: string; 
+            }) => Effect.gen(function* () {
+                if (!whatsapp.capabilities.includes('sendImage')) {
+                    return yield* Effect.fail(new Error('WhatsApp gateway does not support image sending'));
+                }
 
-                // Record the message after successful send
-                yield* rateLimiter.recordMessage(payload.sender);
+                if (
+                    whatsapp.capabilities.includes('sendContextualReply')
+                    && payload.messageId
+                ) {
+                    yield* whatsapp.sendImageReply({
+                        messageId: payload.messageId,
+                        to: payload.sender,
+                        imageURL,
+                        caption: options?.caption,
+                        mime: options?.mime || 'image/jpeg',
+                        filename: options?.filename || 'image.jpg'
+                    });
+                } else {
+                    const caption = options?.caption 
+                        ? (payload.group ? `@${payload.name}, ${options.caption}` : options.caption)
+                        : undefined;
+
+                    yield* whatsapp.sendImage({
+                        to: payload.sender,
+                        imageURL,
+                        caption,
+                        mime: options?.mime || 'image/jpeg',
+                        filename: options?.filename || 'image.jpg'
+                    });
+                }
             }),
         };
     })
