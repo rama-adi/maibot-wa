@@ -2,6 +2,7 @@ import { Context, Data, Effect } from "effect";
 
 const WhatsappGatewayCapabilities = [
     "sendAttachment", // Ability to send attachment
+    "sendImage", // Sending images is allowed
     "sendContextualReply", // Ability to attach reply to command
     "sendMessage" // Ability to send message
 ] as const;
@@ -38,6 +39,21 @@ export class WhatsAppGatewayService extends Context.Tag("WhatsappGatewayService"
             to: string,
             messageId: string,
             message: string
-        }) => Effect.Effect<string, Error>
+        }) => Effect.Effect<string, Error>,
+        readonly sendImage: (data: {
+            to: string,
+            imageURL: string,
+            caption?: string,
+            mime: string,
+            filename: string,
+        }) => Effect.Effect<string, WhatsappGatewayCapabilityInvalid>,
+        readonly sendImageReply: (data: {
+            to: string,
+            messageId: string,
+            imageURL: string,
+            caption?: string,
+            mime: string,
+            filename: string,
+        }) => Effect.Effect<string, WhatsappGatewayCapabilityInvalid>
     }
 >() { }

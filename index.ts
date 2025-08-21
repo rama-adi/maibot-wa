@@ -7,6 +7,7 @@ import { appRouter } from '@/web/trpc';
 import dashboardIndex from "@/web/dashboard/index.html";
 import dashboardLogin from "@/web/dashboard/login.html";
 import { LiveRuntimeContainer } from './container';
+import { bootstrapWhatsappWS } from '@/bootstrap-wa';
 
 export const Runtime = ManagedRuntime.make(LiveRuntimeContainer);
 
@@ -95,5 +96,5 @@ const server = serve({
     console: true,
   },
 });
-
+bootstrapWhatsappWS();
 console.log(`🚀 Server running at ${server.url}`);

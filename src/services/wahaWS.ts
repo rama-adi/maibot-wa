@@ -1,4 +1,4 @@
-import { type WhatsAppGatewayPayload, WhatsAppGatewayService } from "@/contracts/whatsapp-gateway";
+import { type WhatsAppGatewayPayload, WhatsAppGatewayService, WhatsappGatewayCapabilityInvalid } from "@/contracts/whatsapp-gateway";
 import { handleUrl } from "@/utils/url";
 import { Config, Data, Effect, Layer, Schema, Redacted } from "effect";
 
@@ -91,7 +91,102 @@ export const WahaWSWhatsappService = Layer.effect(WhatsAppGatewayService)(
 
         return {
             name: "WAHAWS",
-            capabilities: ["sendMessage", "sendContextualReply", "sendAttachment"],
+            capabilities: ["sendMessage", "sendContextualReply", "sendAttachment", "sendImage"],
+            sendImage: (data) => Effect.gen(function* () {
+                const payload = {
+                    session: config.session,
+                    chatId: data.to,
+                    file: {
+                        mimetype: data.mime,
+                        url: data.imageURL,
+                        filename: data.filename
+                    },
+                    caption: data.caption || ""
+                };
+
+                const response = yield* Effect.tryPromise({
+                    try: () => fetch(
+                        handleUrl(config.apiPath, "sendImage"), {
+                        method: "POST",
+                        body: JSON.stringify(payload),
+                        headers: {
+                            'Content-type': 'application/json',
+                            'X-Api-Key': Redacted.value(config.apiKey),
+                        }
+                    }),
+                    catch: (error) => new WhatsappGatewayCapabilityInvalid({
+                        capability: "sendImage"
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorBody = yield* Effect.tryPromise({
+                        try: () => response.text(),
+                        catch: () => new WhatsappGatewayCapabilityInvalid({
+                            capability: "sendImage"
+                        })
+                    });
+
+                    return yield* Effect.fail(new WhatsappGatewayCapabilityInvalid({
+                        capability: "sendImage"
+                    }));
+                }
+
+                return yield* Effect.tryPromise({
+                    try: () => response.text(),
+                    catch: (error) => new WhatsappGatewayCapabilityInvalid({
+                        capability: "sendImage"
+                    })
+                });
+            }),
+            sendImageReply: (data) => Effect.gen(function* () {
+                const payload = {
+                    session: config.session,
+                    chatId: data.to,
+                    reply_to: data.messageId,
+                    file: {
+                        mimetype: data.mime,
+                        url: data.imageURL,
+                        filename: data.filename
+                    },
+                    caption: data.caption || ""
+                };
+
+                const response = yield* Effect.tryPromise({
+                    try: () => fetch(
+                        handleUrl(config.apiPath, "sendImage"), {
+                        method: "POST",
+                        body: JSON.stringify(payload),
+                        headers: {
+                            'Content-type': 'application/json',
+                            'X-Api-Key': Redacted.value(config.apiKey),
+                        }
+                    }),
+                    catch: (error) => new WhatsappGatewayCapabilityInvalid({
+                        capability: "sendImage"
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorBody = yield* Effect.tryPromise({
+                        try: () => response.text(),
+                        catch: () => new WhatsappGatewayCapabilityInvalid({
+                            capability: "sendImage"
+                        })
+                    });
+
+                    return yield* Effect.fail(new WhatsappGatewayCapabilityInvalid({
+                        capability: "sendImage"
+                    }));
+                }
+
+                return yield* Effect.tryPromise({
+                    try: () => response.text(),
+                    catch: (error) => new WhatsappGatewayCapabilityInvalid({
+                        capability: "sendImage"
+                    })
+                });
+            }),
             handleWebhook: (data, _) => Effect.gen(function* () {
                 const rawPayload = yield* Effect.try({
                     try: () => JSON.parse(data),
@@ -171,7 +266,7 @@ export const WahaWSWhatsappService = Layer.effect(WhatsAppGatewayService)(
                 const result: WhatsAppGatewayPayload = {
                     id: webhookMessage.id,
                     messageId: webhookMessage.payload.id,
-                    sender: webhookMessage.payload._data.Info.Sender,
+                    sender: webhookMessage.payload.from, // Use 'from' field as it's the proper chat ID without device part
                     message: message,
                     group: webhookMessage.payload._data.Info.IsGroup,
                     number: senderInfo,

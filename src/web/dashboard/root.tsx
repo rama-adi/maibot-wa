@@ -11,9 +11,10 @@ import "@/web/globals.css"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Outlet, Link, useLocation } from "react-router";
 import DashboardIndex from "./pages/index";
+import CommandTester from "./pages/command-tester";
 import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarInset, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger } from "@/web/components/ui/sidebar";
 
-import { LayoutDashboardIcon, Rows3Icon } from "lucide-react";
+import { LayoutDashboardIcon, Rows3Icon, MessageSquare } from "lucide-react";
 import { IconInnerShadowTop } from "@tabler/icons-react";
 import { Button } from "@/web/components/ui/button"
 import { Separator } from "@/web/components/ui/separator"
@@ -27,6 +28,12 @@ const DASHBOARD_ROUTES = [
     path: "/",
     icon: LayoutDashboardIcon,
     component: DashboardIndex
+  },
+  {
+    name: "Command Tester",
+    path: "command-tester",
+    icon: MessageSquare,
+    component: CommandTester
   },
   {
     name: "Queues",

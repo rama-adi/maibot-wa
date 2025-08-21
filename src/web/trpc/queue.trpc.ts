@@ -1,8 +1,9 @@
 import { Effect, Schema } from "effect";
 import { router, publicProcedure } from "./trpc";
-import { QueueJobData, QueueService } from "@/services/queue";
+
 import { TRPCError } from "@trpc/server";
 import { LogQueue } from "@/queues/log.queue";
+import { QueueJobData, QueueService } from "@/contracts/queue";
 
 // @trpc-no-export
 export const queueRouter = router({
