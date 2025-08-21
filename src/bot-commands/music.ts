@@ -225,6 +225,6 @@ export default defineCommand(dependencies => ({
                 otherResultsSection,
             ]);
 
-            yield* dependencies.executor.reply(replyText);
+            yield* dependencies.executor.reply(replyText.trim());
         }),
 }));
