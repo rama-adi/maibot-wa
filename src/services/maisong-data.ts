@@ -1,14 +1,20 @@
 import type { API } from "@/contracts/api";
 import { MaiSongData, MaiSongSearchError, MaiSongNetworkError, MaiSongValidationError } from "@/contracts/maisong-data";
 import { createTRPCClient, httpBatchLink } from "@trpc/client";
-import { Effect, Layer } from "effect";
+import { Config, Effect, Layer } from "effect";
+
+export const maisongDataConfig = Config.all({
+    url: Config.string("MAISONG_DATA_URL")
+})
+    
 
 export const MaisongDataLive = Layer.effect(MaiSongData)(
     Effect.gen(function* () {
+        const config = yield* maisongDataConfig;
         const client = createTRPCClient<API>({
             links: [
                 httpBatchLink({
-                    url: 'https://otogesong-index.onebyteworks.my.id/api/v1',
+                    url: config.url,
                 }),
             ],
         });
