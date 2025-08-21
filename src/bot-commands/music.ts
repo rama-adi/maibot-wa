@@ -242,6 +242,6 @@ export default defineCommand(dependencies => ({
         otherResultsSection,
       ]);
 
-      yield* dependencies.executor.reply(replyText);
+      yield* dependencies.executor.reply(replyText.replace(/\n{3,}/g, "\n\n"));
     }),
 }));
