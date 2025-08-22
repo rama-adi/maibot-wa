@@ -73,8 +73,8 @@ const GATES: Gate[] = [
     name: "Violet Gate",
     nameJp: "紫の扉",
     color: "🟣",
-    startDate: new Date("2025-04-11"), // TBA - set to future date
-    unlockedIn: "TBA",
+    startDate: new Date("2025-04-11"),
+    unlockedIn: "BLACK ROSEちほー10",
     song: "有明/Ariake",
     artist: "SIINCA",
     correspondingArea: "Black Rose (黒薔薇エリア)",
@@ -93,9 +93,9 @@ const GATES: Gate[] = [
     unlockedIn: "メトロポリスちほー9",
     song: "宙天",
     artist: "t+pazolite vs. かねこちはる",
-    correspondingArea: "End (終末エリア)",
+    correspondingArea: "World's End (終末エリア)",
     keyUnlock:
-      "Mainkan semua lagu turnamen KING of Performai masa lalu (tidak termasuk lagu divisi internasional) setidaknya sekali sejak course dirilis: Blows Up Everything, ≠彡\"/了→, U&iVERSE -銀河鸞翔-, Rising on the horizon, KHYMΞXΛ, Divide et impera!, Valsqotch, BREaK! BREaK! BREaK!, GIGANTØMAKHIA, ViRTUS, 系ぎて",
+      "Mainkan semua lagu final set turnamen KING of Performai masa lalu (divisi internasional tidak termasuk) setidaknya sekali sejak course dirilis: Blows Up Everything, ≠彡\"/了→, U&iVERSE -銀河鸞翔-, Rising on the horizon, KHYMΞXΛ, Divide et impera!, Valsqotch, BREaK! BREaK! BREaK!, GIGANTØMAKHIA, ViRTUS, 系ぎて",
     courseTrack1: "Lagu acak dari area di 終末エリア",
     courseTrack2:
       "Lagu Perfect Challenge acak dari area di 終末エリア, Blows Up Everything, dan STEEL TRANSONIC",
@@ -123,18 +123,66 @@ const GATES: Gate[] = [
     name: "Red Gate",
     nameJp: "赤の扉",
     color: "🔴",
-    startDate: new Date("2099-12-31"), // TBA - set to future date
+    startDate: new Date("2099-12-31"), // Belum rilis Asia; data berdasarkan JP dan bisa berubah
     unlockedIn: "ドラゴンちほー4",
     song: "FLΛME/FRΦST",
     artist: "FANTAGIRAFF",
     correspondingArea: "World Tree (世界樹エリア)",
     keyUnlock:
-      "Mainkan 10 lagu berikut setidaknya sekali sejak course dirilis: ドラゴンエネルギー, Garden Of The Dragon, DRAGONLADY, 好きな惣菜発表ドラゴン, KONNANじゃないっ！, Brand-new Japanesque, Outlaw's Lullaby, 鼓動, 神室雪月花, ばかみたい【Taxi Driver Edition】",
+      "Mainkan 10 lagu berikut setidaknya sekali sejak course dirilis: ドラゴンエネルギー, Garden Of The Dragon, DRAGONLADY, 好きな惣菜発表ドラゴン, KONNANじゃないっ！, Brand-new Japanesque, Outlaw's Lullaby, 鼓動, 神室雪月花, ばかみたい【Taxi Driver Edition】 (Info JP; bisa berubah saat rilis Asia)",
     courseTrack1: "Lagu acak dari area di 世界樹エリア",
     courseTrack2: "Lagu Perfect Challenge acak dari area di 世界樹エリア, dan 一か罰",
     courseTrack3: "FLΛME/FRΦST",
   },
-];
+  {
+    id: "prism",
+    name: "Prism Tower",
+    nameJp: "プリズムタワー",
+    color: "🔷",
+    startDate: new Date("2099-12-31"), // JP: 2025-07-11 — belum rilis Asia
+    unlockedIn: "7sRefちほー4",
+    song: "World's end BLACKBOX",
+    artist: "打打だいず",
+    correspondingArea: "Prism (プリズムエリア)",
+    keyUnlock:
+      "Selesaikan semua 6 fase di Stage 1 (Info JP; bisa berubah saat rilis Asia).",
+    courseTrack1: "Lagu acak dari area di プリズムエリア (kecuali ヨミビトシラズ)",
+    courseTrack2: "Lagu Perfect Challenge acak dari area di プリズムエリア",
+    courseTrack3: "World's end BLACKBOX",
+  },
+  {
+    id: "error",
+    name: "ERROR",
+    nameJp: "エラー",
+    color: "🟥",
+    startDate: new Date("2099-12-31"), // JP: 2025-08-08 — belum rilis Asia
+    unlockedIn: "ERRORちほー",
+    song: "ERROR CODE:UNKNOWN",
+    artist: "xi vs. 削除",
+    correspondingArea: "???",
+    keyUnlock:
+      "Hanya tersedia setelah menyelesaikan Prism Tower. Info JP: Dalam satu credit, mainkan semua lagu boss dari gate sebelumnya (Blue, White, Violet, Black, Yellow, Red, Prism Tower) secara berurutan. (Syarat Asia bisa berubah)",
+    courseTrack1: "Lagu acak boss dari Stage 1",
+    courseTrack2: "World's end BLACKBOX",
+    courseTrack3: "ERROR CODE:UNKNOWN",
+  },
+  {
+    id: "finale",
+    name: "Finale Gate",
+    nameJp: "終焉の扉",
+    color: "🌈",
+    startDate: new Date("2099-12-31"), // JP: 2025-09-?? — belum rilis Asia
+    unlockedIn: "???",
+    song: "KALEID×SCOPE",
+    artist: "Cytus × maimai ALLSTARS",
+    correspondingArea: "Final (最終エリア)",
+    keyUnlock:
+      "Hanya tersedia setelah ERROR Gate selesai. Info JP: Semua course KALEID×SCOPE Stage 1 & Stage 2 harus Clear (Syarat Asia bisa berubah).",
+    courseTrack1: "Medley lagu boss Stage 1",
+    courseTrack2: "World's end BLACKBOX",
+    courseTrack3: "KALEID×SCOPE",
+  },
+]
 
 // ——— Helpers ———
 const toJapanNow = () => {
@@ -211,9 +259,8 @@ const buildGateDetailResponse = (gate: Gate): string => {
 
     const next = getNextCondition(gate.startDate);
     if (next) {
-      response += `*Kondisi Selanjutnya:* ${next.life} Life (${next.requiredDifficulty}) dalam ${
-        next.daysFromRelease - d
-      } hari\n\n`;
+      response += `*Kondisi Selanjutnya:* ${next.life} Life (${next.requiredDifficulty}) dalam ${next.daysFromRelease - d
+        } hari\n\n`;
     } else {
       response += `*Status:* Kondisi maksimum tercapai (999 Life, difficulty Basic)\n\n`;
     }
