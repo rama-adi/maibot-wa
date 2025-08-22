@@ -27,6 +27,7 @@ export const MaiAiLive = Layer.effect(MaiAi)(
         });
 
         const MODEL_JQ = groq("moonshotai/kimi-k2-instruct");
+        //const MODEL_MAIN = groq("qwen/qwen3-32b");
         const MODEL_MAIN = openai("gpt-5-mini");
 
 
@@ -37,8 +38,7 @@ export const MaiAiLive = Layer.effect(MaiAi)(
                     query: z.string().describe('Search query in english. MUST be included. FULL search query so correct result is displayed.'),
                     meta: z.object({
                         artist: z.string().optional().describe("Artist name"),
-                        minLevelDisplay: z.string().optional().describe("Minimum difficulty level display (9+, 10, 10+ etc.), this is not internal level which uses decimals. if user asks for decimal use that"),
-                        maxLevelDisplay: z.string().optional().describe("Maximum difficulty level (9+, 10, 10+ etc.), this is not internal level which uses decimals. if user asks for decimal use that"),
+
                         minLevel: z.float32().min(1.0).max(15.0).optional().describe("Minimum difficulty level (9.0, 11.5, etc). If the user uses dot notation use this"),
                         maxLevel: z.float32().min(1.0).max(15.0).optional().describe("Maximum difficulty level (9.0, 11.5, etc). If the user uses dot notation use this"),
                         minBpm: z.number().optional().describe("Minimum BPM"),
@@ -49,10 +49,6 @@ export const MaiAiLive = Layer.effect(MaiAi)(
                         difficulty: z.enum(['basic', 'advanced', 'expert', 'master', 'remaster']).optional().describe("Difficulty name"),
                         noteDesigner: z.string().optional().describe("Note designer"),
                         isSpecial: z.boolean().optional().describe("Is special chart"),
-                        hasRegionJp: z.boolean().optional().describe("Available in Japan"),
-                        hasRegionIntl: z.boolean().optional().describe("Available internationally"),
-                        hasRegionCn: z.boolean().optional().describe("Available in China"),
-                        limit: z.number().optional().describe("Maximum number of results")
                     })
                 }),
                 execute: async (input, opts) => {
@@ -169,7 +165,7 @@ export const MaiAiLive = Layer.effect(MaiAi)(
                             "] ) as $out",
                             "| if ($out|length)>0 then $out[] else \"No songs found by note designer containing \\\"luxizhel\\\"\" end"
                         ].join("\\n");
-                          
+
 
 
                         const unwrapCodeFences = (s: string) => {
@@ -344,6 +340,9 @@ export const MaiAiLive = Layer.effect(MaiAi)(
                     "Jika pertanyaan kurang jelas, tanya balik singkat.",
                     "Jika tidak yakin, katakan jujur + info tambahan yang dibutuhkan.",
                     "",
+                    "- User mungkin bertanya mengenai 'pembuat lagu' atau 'karya', ini maksudnya artist, kecuali user spesifik meminta 'charter', ini maksudnya notes designer. cari di salah satu saja sesuai permintaan",
+                    "- Contoh: 'lagu karya kanaria' -> 'artist: kanaria', 'lagu yang dichart luxizhel' -> 'notes designer: luxizhel'.",
+                    "- Ingat selalu kecuali user meminta secara spesifik charter/notes designer, 'pembuat' selalu merujuk ke artis saja.",
                     "Markdown WhatsApp yang bisa dipakai:",
                     "- *teks* = bold",
                     "- _teks_ = italic",
@@ -364,11 +363,6 @@ export const MaiAiLive = Layer.effect(MaiAi)(
                     "- *Display*: level di mesin (contoh: 9, 10+) → mudah dilihat di arcade.",
                     "- *Internal*: level teknis pakai koma (contoh: 13.9, 14.5) → dipakai untuk bedakan tingkat kesulitan yang detail.",
                     "- Misal user mungkin bertanya tentang level 13, dia berbicara tentang level display, 13.5, internal",
-                    "",
-                    "Format dianjurkan:",
-                    "1. *Panduan*: langkah-langkah.",
-                    "2. *Istilah maimai*: definisi + contoh.",
-                    "3. *Rekomendasi chart/lagu*: level (display/internal), BPM (jika ada), alasan singkat."
                 ].join("\n");
 
 
